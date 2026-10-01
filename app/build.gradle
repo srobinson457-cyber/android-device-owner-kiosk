@@ -1,0 +1,81 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Signing material lives OUTSIDE the project tree and is never committed; see
+// keystore.properties.example. The signature must stay stable for the life of the
+// device: once this package is Device Owner, a differently-signed APK cannot be
+// installed over it without first clearing Device Owner.
+def signingPropsFile = file('keystore.properties')
+def signingProps = new Properties()
+if (signingPropsFile.exists()) {
+    signingPropsFile.withInputStream { signingProps.load(it) }
+}
+
+android {
+    namespace 'dev.deviceowner.kiosk'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'dev.deviceowner.kiosk'
+        minSdk 26
+        // targetSdk 35 deliberately, NOT 36: apps targeting API 36 cannot enforce fixed
+        // orientation or non-resizability on displays >= 600dp, and this is a 10.9" tablet.
+        // We sideload via adb, so Play's target-API requirement does not apply.
+        targetSdk 35
+        versionCode 1
+        versionName '1.0-reference'
+    }
+
+    // ON BUILD FLAVORS, because this is the structure worth copying.
+    //
+    // The original deployment ran two devices from this one codebase, a tablet and a phone.
+    // They differed ONLY in the home-screen activity and the Flavor class that supplies
+    // lock-task packages, lock-task features, keyguard handling and the restriction tweaks.
+    // Everything that enforces or recovers - KioskPolicy, AdminGate, KioskShellActivity,
+    // RemotePolicy, WifiSetup, ProbeActivity - was shared, deliberately: the corner-tap gesture
+    // and the challenge/response gate are the security boundary, and two copies of a security
+    // boundary drift apart.
+    //
+    // Adding a device type was therefore a new source set, never a new `if` in policy code.
+    // This reference build ships a single default flavor; add yours as source sets alongside
+    // it and give each one its own Flavor.java with the same API.
+    //
+    // Keep applicationId the SAME across flavors. Changing it invalidates every runbook, the
+    // `dpm set-device-owner` component name, and any challenge/response tooling, for no
+    // benefit. The app is invisible in normal use; it IS home.
+
+    signingConfigs {
+        release {
+            if (signingProps['storeFile']) {
+                storeFile file(signingProps['storeFile'])
+                storePassword signingProps['storePassword']
+                keyAlias signingProps['keyAlias']
+                keyPassword signingProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Deliberately none. The policy engine is plain framework Java with no third-party
+    // dependencies at all, which is part of the point: a device you cannot physically reach is
+    // a bad place to discover that a transitive dependency changed behaviour on an OTA.
+    //
+    // If you need in-app photo capture, add CameraX scoped to the flavor that needs it, and do
+    // NOT allowlist the OEM camera for ACTION_IMAGE_CAPTURE instead. That puts a second package
+    // inside lock task, and OEM camera apps commonly carry a QR scanner that opens URLs.
+    // Owning capture is what keeps setLockTaskPackages at exactly one entry.
+}

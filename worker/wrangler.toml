@@ -1,0 +1,7 @@
+name = "device-owner-policy"
+main = "src/index.js"
+compatibility_date = "2026-08-16"
+
+# KIOSK_SECRET is set as a Worker secret, never committed:
+#   npx wrangler secret put KIOSK_SECRET
+# It must equal the admin secret provisioned onto that device over ADB at setup.

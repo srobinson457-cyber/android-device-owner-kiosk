@@ -1,0 +1,25 @@
+# Signing material. Never commit any of this.
+keystore.properties
+*.keystore
+*.jks
+
+# Device secrets, if you keep a local copy while provisioning
+*secret*.txt
+local.properties
+
+# Build output
+build/
+.gradle/
+*.apk
+*.aab
+captures/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Worker
+worker/node_modules/
+worker/.wrangler/
+.dev.vars

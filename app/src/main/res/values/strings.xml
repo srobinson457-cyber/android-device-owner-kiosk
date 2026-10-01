@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Device Owner Kiosk</string>
+    <string name="admin_label">Device Owner Kiosk</string>
+    <string name="admin_description">Manages this tablet so it can only run one designated app.</string>
+</resources>

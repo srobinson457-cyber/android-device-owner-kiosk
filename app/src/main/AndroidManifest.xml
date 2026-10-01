@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Required on Android 11+. Without it, package-visibility filtering silently returns a
+      PARTIAL launcher list to queryIntentActivities: the first hide sweep on the reference
+      device saw 23 packages and missed Chrome, Play, Facebook and the rest of the 55 that
+      `cmd package query-activities` reports from shell. A DPC has to see everything.
+
+      This is the single highest-value line in this file. A hide sweep that silently covers
+      less than half the launcher looks like it worked.
+    -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+      Wi-Fi, so the tablet can be moved to another site without a computer. ACCESS/CHANGE
+      _WIFI_STATE are normal permissions, granted at install; addNetworkPrivileged needs
+      neither, but enableNetwork enforces CHANGE_WIFI_STATE.
+
+      The two location permissions are ONLY for listing nearby networks: getScanResults
+      requires ACCESS_FINE_LOCATION with no Device Owner bypass, and setPermissionGrantState
+      cannot grant a permission the app has not declared - so they have to be here, in this
+      build, or the scan list can never work. Joining a typed SSID needs none of it.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="false">
+
+        <!--
+          HOME. This is what makes the device a kiosk rather than a device with a kiosk app
+          on it. CATEGORY_HOME plus KioskPolicy's persistent-preferred-handler registration
+          means the Home key has nowhere else to go.
+
+          singleInstance + excludeFromRecents: without them a launched sub-activity can leave
+          a second task in the stack, and Recents becomes a way out of the pinned task on
+          shells that render it even under lock task.
+        -->
+        <activity
+            android:name=".KioskActivity"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:label="@string/app_name"
+            android:theme="@android:style/Theme.Material.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Admin/diagnostics. Not exported and deliberately has no LAUNCHER filter:
+          the ONLY way in is the corner-tap gesture inside KioskActivity.
+        -->
+        <activity
+            android:name=".ProbeActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <!--
+          Wi-Fi setup. Same package as the kiosk, so setLockTaskPackages([self]) already
+          covers it and it opens without leaving lock task. Reached only from ProbeActivity,
+          which is reached only through the challenge/response gate.
+        -->
+        <activity
+            android:name=".WifiSetupActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <!--
+          NOTE FOR ANYONE ADDING A SECOND BUILD FLAVOR, because this one cost an afternoon:
+          declare a FileProvider in the manifest of the flavor whose dependencies actually
+          supply it, never in the shared manifest. androidx.core arrives through the CameraX
+          and activity dependencies; when those were scoped to one flavor but the provider was
+          declared in the shared manifest, the other flavor crashed at PROCESS START with
+          ClassNotFoundException. Content providers are instantiated before any activity runs,
+          so there is no code path where you could have guarded it.
+        -->
+
+        <receiver
+            android:name=".AdminCommandReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.deviceowner.kiosk.CMD" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".AdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>
