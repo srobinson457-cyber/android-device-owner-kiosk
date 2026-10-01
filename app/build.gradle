@@ -32,8 +32,8 @@ android {
     // The original deployment ran two devices from this one codebase, a tablet and a phone.
     // They differed ONLY in the home-screen activity and the Flavor class that supplies
     // lock-task packages, lock-task features, keyguard handling and the restriction tweaks.
-    // Everything that enforces or recovers - KioskPolicy, AdminGate, KioskShellActivity,
-    // RemotePolicy, WifiSetup, ProbeActivity - was shared, deliberately: the corner-tap gesture
+    // Everything that enforces or recovers (KioskPolicy, AdminGate, KioskShellActivity,
+    // RemotePolicy, WifiSetup, ProbeActivity) was shared, deliberately: the corner-tap gesture
     // and the challenge/response gate are the security boundary, and two copies of a security
     // boundary drift apart.
     //
@@ -67,12 +67,21 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    testOptions {
+        // Local JVM tests only. android.util.Log and friends return defaults instead of
+        // throwing, so pure logic such as AdminGate.respond() can be tested off-device.
+        unitTests.returnDefaultValues = true
+    }
 }
 
 dependencies {
-    // Deliberately none. The policy engine is plain framework Java with no third-party
+    // Test-only. Nothing here ships in the APK.
+    testImplementation 'junit:junit:4.13.2'
+
+    // No runtime dependencies, deliberately. The policy engine is plain framework Java with no third-party
     // dependencies at all, which is part of the point: a device you cannot physically reach is
-    // a bad place to discover that a transitive dependency changed behaviour on an OTA.
+    // a bad place to discover that a transitive dependency changed behavior on an OTA.
     //
     // If you need in-app photo capture, add CameraX scoped to the flavor that needs it, and do
     // NOT allowlist the OEM camera for ACTION_IMAGE_CAPTURE instead. That puts a second package

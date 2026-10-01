@@ -22,7 +22,7 @@ import android.widget.Toast;
  * This screen began life as a phase-1 probe that reported whether Device Owner had taken,
  * and for a while that is all it was. That turned out to be a design fault with teeth: at
  * handover the real control surface was AdminCommandReceiver, which is driven over ADB,
- * and the last step of handover is lockDebugging() - which removes ADB. So every lever
+ * and the last step of handover is lockDebugging(), which removes ADB. So every lever
  * that could fix the tablet became unreachable at exactly the moment the tablet went
  * somewhere unreachable, and the only on-device button left was "Clear Device Owner".
  *
@@ -33,7 +33,7 @@ import android.widget.Toast;
  * fix needs a phone call rather than a car journey.
  *
  * Everything here sits behind the HMAC challenge/response, which a casual user cannot pass and
- * which does not leak by being watched - so exposing real controls here does not weaken
+ * which does not leak by being watched, so exposing real controls here does not weaken
  * the lockdown. The destructive one is still last, still separated, and now confirms.
  */
 public class ProbeActivity extends Activity {
@@ -79,13 +79,13 @@ public class ProbeActivity extends Activity {
         note.setTextSize(14f);
         note.setPadding(0, 12, 0, 0);
         note.setText("Clearing Device Owner removes the whole lockdown and cannot be undone "
-                + "from this " + Flavor.DEVICE_NOUN + " - putting it back needs a computer and a USB cable. "
+                + "from this " + Flavor.DEVICE_NOUN + ". Putting it back needs a computer and a USB cable. "
                 + "Use maintenance mode instead unless someone has told you otherwise.");
         root.addView(note);
 
         ScrollView scroller = new ScrollView(this);
         // Background belongs on the scroller, not the content: the LinearLayout is only as
-        // tall as its children, which leaves the rest of the screen system grey.
+        // tall as its children, which leaves the rest of the screen system gray.
         scroller.setBackgroundColor(Color.parseColor("#001b3d"));
         scroller.addView(root);
         setContentView(scroller);
@@ -128,7 +128,7 @@ public class ProbeActivity extends Activity {
     }
 
     /**
-     * The tablet could not be switched off at all - holding the buttons only forces a power
+     * The tablet could not be switched off at all: holding the buttons only forces a power
      * cycle, and it comes straight back. Fine day to day, not fine when it has to go in for a
      * screen repair, or go in a drawer for a month.
      *
@@ -141,7 +141,7 @@ public class ProbeActivity extends Activity {
                 .setTitle("Shut down the " + Flavor.DEVICE_NOUN)
                 .setMessage("Now hold the Power button for a few seconds and choose "
                         + "\"Power off\".\n\nWhen you switch the " + Flavor.DEVICE_NOUN + " back on it returns to "
-                        + Flavor.KIOSK_SUBJECT + " as normal, and the power menu turns itself back off - "
+                        + Flavor.KIOSK_SUBJECT + " as normal, and the power menu turns itself back off, "
                         + "so you will need to come back here to shut it down again.")
                 .setPositiveButton("OK", null)
                 .show();
@@ -185,7 +185,7 @@ public class ProbeActivity extends Activity {
             }
         } catch (Exception ignored) {
             // The allowlist for setGlobalSetting has shrunk over the years and ADB_ENABLED
-            // may no longer be on it. Not fatal - it is a convenience, not the mechanism.
+            // may no longer be on it. Not fatal: it is a convenience, not the mechanism.
         }
         log.append("adbEnabled=").append(adbSet);
 
@@ -209,7 +209,7 @@ public class ProbeActivity extends Activity {
     }
 
     /**
-     * There is no launcher on this device - this app owns HOME - so Settings has to be
+     * There is no launcher on this device (this app owns HOME), so Settings has to be
      * launched from here or not at all. Only works once lock task has ended, which is why
      * it says so rather than failing silently.
      */
@@ -219,7 +219,7 @@ public class ProbeActivity extends Activity {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(i);
         } catch (Exception e) {
-            toast("Settings refused to open - open maintenance mode first.");
+            toast("Settings refused to open. Open maintenance mode first.");
         }
     }
 
@@ -290,7 +290,7 @@ public class ProbeActivity extends Activity {
         DevicePolicyManager dpm =
                 (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
         if (dpm == null || !dpm.isDeviceOwnerApp(getPackageName())) {
-            Toast.makeText(this, "Not device owner - nothing to clear", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Not device owner: nothing to clear", Toast.LENGTH_LONG).show();
             return;
         }
         try {

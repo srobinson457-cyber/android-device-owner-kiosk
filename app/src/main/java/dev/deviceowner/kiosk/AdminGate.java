@@ -15,14 +15,14 @@ import javax.crypto.spec.SecretKeySpec;
  * Challenge/response gate for the admin screen.
  *
  * Why not a PIN: the device lives at a site the operator rarely visits, and a static PIN typed in front of a
- * motivated user is a leaked PIN - permanently, with no way for us to notice or rotate it
+ * motivated user is a leaked PIN, permanently, with no way for us to notice or rotate it
  * remotely. Instead the tablet shows a random 6-digit CHALLENGE and demands the matching
  * RESPONSE, which is HMAC-SHA256(deviceSecret, challenge) truncated HOTP-style. Watching
  * someone type a response teaches you nothing, because the next challenge is different.
  *
  * The device secret is provisioned once over ADB at setup and never displayed on the tablet.
  * It lives in app-private SharedPreferences: on a locked-bootloader, non-rooted device whose
- * only job is one app, app-private storage is the right level of protection - the threat
+ * only job is one app, app-private storage is the right level of protection: the threat
  * model is a determined user, not a forensic lab.
  *
  * A remote "maintenance" flag from the policy Worker unlocks the same screen without any
@@ -90,7 +90,7 @@ public final class AdminGate {
         }
         if (activeChallenge == null
                 || SystemClock.elapsedRealtime() - challengeIssuedAt > CHALLENGE_TTL_MS) {
-            return "Challenge expired - reopen";
+            return "Challenge expired: reopen";
         }
         String secret = prefs(c).getString(KEY_SECRET, null);
         if (secret == null) {
@@ -113,7 +113,7 @@ public final class AdminGate {
         String msg = "Incorrect (" + fails + "/" + MAX_FAILS + ")";
         if (fails >= MAX_FAILS) {
             e.putLong(KEY_LOCKED_UNTIL, System.currentTimeMillis() + LOCKOUT_MS).putInt(KEY_FAILS, 0);
-            msg = "Too many attempts - locked 5 min";
+            msg = "Too many attempts: locked 5 min";
             activeChallenge = null;
         }
         e.apply();

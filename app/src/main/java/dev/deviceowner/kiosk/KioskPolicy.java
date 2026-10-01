@@ -23,7 +23,7 @@ import java.util.Set;
 
 /**
  * Device Owner policy. Split into separately-applicable steps rather than one apply() so
- * each can be verified on hardware before the next lands - and so the step that removes
+ * each can be verified on hardware before the next lands, and so the step that removes
  * our own ADB access (debugging) is always last and always deliberate.
  */
 public final class KioskPolicy {
@@ -99,7 +99,7 @@ public final class KioskPolicy {
         add(d, a, UserManager.DISALLOW_REMOVE_USER, on, failed);
 
         // Self-defence. NOTE: DISALLOW_INSTALL_APPS / DISALLOW_UNINSTALL_APPS deliberately
-        // live in lockInstall() instead - applying them here blocked `adb install` and locked
+        // live in lockInstall() instead: applying them here blocked `adb install` and locked
         // us out of updating our own APK mid-build. They are a handover-time step.
         add(d, a, UserManager.DISALLOW_FACTORY_RESET, on, failed);
 
@@ -113,11 +113,11 @@ public final class KioskPolicy {
         // including this one, so it cannot lock anyone out of removing accounts later.
         add(d, a, UserManager.DISALLOW_MODIFY_ACCOUNTS, on, failed);
 
-        // Clock - a timezone-only shift is enough to move day boundaries and OTA windows, so both.
+        // Clock: a timezone-only shift is enough to move day boundaries and OTA windows, so both.
         add(d, a, UserManager.DISALLOW_CONFIG_DATE_TIME, on, failed);
         try {
             if (Build.VERSION.SDK_INT >= 30) {
-                // Clock stays auto-synced - that is the actual anti-tamper, and it is what
+                // Clock stays auto-synced: that is the actual anti-tamper, and it is what
                 // stops anyone shifting time to defeat time-based policy.
                 d.setAutoTimeEnabled(a, true);
                 // Auto TIMEZONE is deliberately left alone here: it resolved to the wrong
@@ -143,9 +143,9 @@ public final class KioskPolicy {
             add(d, a, UserManager.DISALLOW_CONFIG_PRIVATE_DNS, on, failed);
         }
 
-        // Physical media - this model has a microSD slot.
+        // Physical media: this model has a microSD slot.
         add(d, a, UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA, on, failed);
-        // DISALLOW_USB_FILE_TRANSFER deliberately NOT here - see lockDebugging(). On this
+        // DISALLOW_USB_FILE_TRANSFER deliberately NOT here (see lockDebugging()). On this
         // Samsung it kills the ADB data connection once USB re-enumerates, which presents as
         // "device unauthorized" with no prompt. Combined with lock task (which blocks the
         // UsbDebuggingActivity prompt from ever launching) that is an unrecoverable-by-ADB
@@ -200,7 +200,7 @@ public final class KioskPolicy {
         //
         // Use this sparingly and prefer removing the CAPABILITY over denying the PERMISSION: a
         // denied permission is visible to the app, and a helpful app responds by deep-linking
-        // to Settings > App info so the user can grant it - which is a Settings surface that
+        // to Settings > App info so the user can grant it, which is a Settings surface that
         // lock task lets through. That is exactly how denying CAMERA to an allowlisted
         // messaging app turned one hole into a worse one. See Flavor.disableCameraDeviceWide.
         for (String[] g : Flavor.permissionGrantsForOtherApps()) {
@@ -265,7 +265,7 @@ public final class KioskPolicy {
     }
 
     /**
-     * Handover-time only. Blocks app install/uninstall device-wide - including `adb install`,
+     * Handover-time only. Blocks app install/uninstall device-wide, including `adb install`,
      * so run this once the APK is final. Reversible with `clear`.
      */
     /**
@@ -273,7 +273,7 @@ public final class KioskPolicy {
      *
      * Without a policy the device follows the default: an OTA raises a NOTIFICATION and
      * waits for someone to go to Settings and tap install. On this tablet the status bar is
-     * disabled so the notification is invisible, and Settings cannot be launched at all - so
+     * disabled so the notification is invisible, and Settings cannot be launched at all, so
      * the update would sit there forever and the tablet would simply stop receiving security
      * patches, silently, for as long as it exists.
      *
@@ -297,7 +297,7 @@ public final class KioskPolicy {
      * Close maintenance mode if nobody closed it.
      *
      * Maintenance mode is the one control on the admin screen that leaves the tablet OPEN,
-     * and it persists - `armed=false` survives reboots. So a single support call where the
+     * and it persists: `armed=false` survives reboots. So a single support call where the
      * person on site forgets to tap "Re-lock the kiosk" would silently undo the entire
      * lockdown, for good, with nothing to indicate it had happened.
      *
@@ -306,7 +306,7 @@ public final class KioskPolicy {
      *
      * An hour is generous for someone being talked through a fix on the phone, and bounded
      * enough that "forgot" costs an hour rather than forever. Called on every kiosk start, so
-     * a reboot mid-window does not reset the clock - the timestamp is absolute.
+     * a reboot mid-window does not reset the clock: the timestamp is absolute.
      */
     static boolean expireMaintenanceIfStale(Context c) {
         SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -319,7 +319,7 @@ public final class KioskPolicy {
         }
         if (System.currentTimeMillis() - opened < MAINTENANCE_MAX_MS) return false;
 
-        Log.i(TAG, "maintenance window expired - re-locking automatically");
+        Log.i(TAG, "maintenance window expired, re-locking automatically");
         lockInstall(c, true);
         arm(c, true);
         lockDebugging(c, true);
@@ -350,7 +350,7 @@ public final class KioskPolicy {
         List<String> failed = new ArrayList<>();
         // DISALLOW_INSTALL_APPS is deliberately NOT here any more.
         //
-        // It blocks ALL installs, and that includes Play updating existing apps - which on
+        // It blocks ALL installs, and that includes Play updating existing apps, which on
         // this device means Android System WebView, the engine actually rendering
         // the managed app. This tablet has to survive years at a site with no physical access, so
         // freezing the browser engine at whatever version shipped is a real, compounding
@@ -381,8 +381,8 @@ public final class KioskPolicy {
     }
 
     /**
-     * The very last step before handover. Removes Developer options entirely - USB and
-     * wireless debugging both - which means it also removes our own way back in. Everything
+     * The very last step before handover. Removes Developer options entirely (USB and
+     * wireless debugging both), which means it also removes our own way back in. Everything
      * else must be verified before this runs.
      */
     static String lockDebugging(Context c, boolean locked) {
@@ -418,8 +418,8 @@ public final class KioskPolicy {
 
             // Claim tel: as well, where the flavor asks for it.
             //
-            // Lock task EXEMPTS the default dialer for tel: intents - the platform protects
-            // emergency dialling - so dropping Samsung's dialer from setLockTaskPackages was
+            // Lock task EXEMPTS the default dialer for tel: intents (the platform protects
+            // emergency dialing), so dropping Samsung's dialer from setLockTaskPackages was
             // NOT enough on its own. Firing a tel: link launched DialtactsActivity with
             // mLockTaskModeState=LOCKED, putting a full dialer back one tap away. Being the
             // persistent preferred handler is what actually closes it.
@@ -432,7 +432,7 @@ public final class KioskPolicy {
                     f.addDataScheme("tel");
                     d.addPersistentPreferredActivity(admin(c), f, target);
                 }
-                // ACTION_DIAL with no data at all - "open the dialer" - resolves separately.
+                // ACTION_DIAL with no data at all ("open the dialer") resolves separately.
                 IntentFilter bare = new IntentFilter(Intent.ACTION_DIAL);
                 bare.addCategory(Intent.CATEGORY_DEFAULT);
                 d.addPersistentPreferredActivity(admin(c), bare, target);
@@ -459,7 +459,7 @@ public final class KioskPolicy {
      * Computed at runtime rather than hardcoded: the list was 55 entries on this tablet and a
      * hardcoded copy silently rots the first time an OTA adds one.
      *
-     * Hidden, not suspended - a suspended app still shows a greyed icon and a system dialog,
+     * Hidden, not suspended: a suspended app still shows a grayed icon and a system dialog,
      * which just advertises that it exists.
      */
     static String hideApps(Context c, boolean hide) {
@@ -494,7 +494,7 @@ public final class KioskPolicy {
                 }
             }
             // Remember what we hid, additively. Needed because a hidden package stops being
-            // returned by the launcher query above - so the naive unhide could never find
+            // returned by the launcher query above, so the naive unhide could never find
             // its way back and the tablet would keep whatever the first sweep took.
             Set<String> record = new HashSet<>(
                     prefs.getStringSet(KEY_HIDDEN, Collections.emptySet()));
@@ -532,7 +532,7 @@ public final class KioskPolicy {
      * removes the power long-press menu. OVERVIEW and NOTIFICATIONS are omitted too.
      *
      * This is a constant rather than a literal inside arm() because two places now need the
-     * same value - arm(), and the re-assert on every kiosk launch that makes a temporary
+     * same value: arm(), and the re-assert on every kiosk launch that makes a temporary
      * power-off grant expire by itself. Two copies of it would drift, and the way it would
      * drift is "the power menu quietly stays available to the user".
      */
@@ -562,8 +562,8 @@ public final class KioskPolicy {
      * which restarts, and PowerManager.shutdown() is system-only. So the honest mechanism is
      * to hand the power menu back and let a human use it.
      *
-     * Needed because the tablet genuinely could not be switched off at all - only forced
-     * through a power cycle - which is a problem for screen repair, for storage, for a
+     * Needed because the tablet genuinely could not be switched off at all (only forced
+     * through a power cycle), which is a problem for screen repair, for storage, for a
      * flight, and for anyone who simply wants the thing to stop. The grant lasts until
      * the kiosk next starts, which is exactly as long as it takes to use it.
      */
@@ -627,7 +627,7 @@ public final class KioskPolicy {
 
             // Flavor decision. A device that leaves the building should keep its keyguard, and
             // keeping it also keeps the lock-screen emergency dialer. Lock task was always the
-            // real barrier - the keyguard never was.
+            // real barrier. The keyguard never was.
             if (Flavor.disableKeyguardWhenArmed()) {
                 try {
                     d.setKeyguardDisabled(a, armed);
@@ -651,7 +651,7 @@ public final class KioskPolicy {
 
     /**
      * Device Owner timezone set (API 28+). Needed because the tablet auto-detected the wrong
-     * zone, and the managed app keys "today" off LOCAL time - an hour's
+     * zone, and the managed app keys "today" off LOCAL time, so an hour's
      * offset silently moves day boundaries. Requires automatic time-zone detection to be off first:
      *   adb shell cmd time_zone_detector set_auto_detection_enabled false
      */

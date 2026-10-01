@@ -14,7 +14,7 @@ import java.util.List;
  * operator's own network and then handed over at a site on a different one, with Settings
  * unlaunchable (lock task allowlists exactly one package), the Quick Panel gone
  * (setStatusBarDisabled) and ADB removed (lockDebugging). Wi-Fi was never restricted by
- * policy - see the comment in KioskPolicy.applyRestrictions - but "permitted" and
+ * policy (see the comment in KioskPolicy.applyRestrictions), but "permitted" and
  * "reachable" are different things, and only the first one was ever true.
  *
  * The API path is narrow and most of the obvious calls are wrong, so the reasoning is
@@ -25,12 +25,12 @@ import java.util.List;
  *    app, and privileged apps", so we qualify as DO WITHOUT the NETWORK_SETTINGS system
  *    permission, and it returns a real status code instead of a bare -1.
  *  - addNetwork()/enableNetwork() are deprecated and documented to "always fail and return
- *    false" for apps targeting Q or above - EXCEPT that the same javadoc carries an
+ *    false" for apps targeting Q or above, EXCEPT that the same javadoc carries an
  *    explicit "Deprecation Exemptions: Device Owner (DO), Profile Owner (PO) and system
  *    apps". enableNetwork is therefore still the correct way to trigger the connect.
  *  - addNetworkSuggestions() is the modern-looking answer and is WRONG here. It requires
  *    user approval, and AOSP's approval-bypass list covers carrier provisioning and
- *    NETWORK_SETTINGS only - there is no Device Owner path. It would ask for consent via a
+ *    NETWORK_SETTINGS only: there is no Device Owner path. It would ask for consent via a
  *    notification, in a status bar we have deliberately disabled.
  *  - reassociate() has no DO exemption at all and always returns false. Do not add it.
  *
@@ -71,7 +71,7 @@ final class WifiSetup {
      * Note what this method does NOT tell you: whether the passphrase was correct. A typo
      * produces a successful add AND a successful enable, and the authentication failure
      * arrives later and asynchronously. Callers that a human is watching must observe the
-     * supplicant state - see WifiSetupActivity - or the user sees "saved" and walks away
+     * supplicant state (see WifiSetupActivity), or the user sees "saved" and walks away
      * from a tablet that never connected.
      */
     static Result join(Context c, String ssid, String passphrase, boolean hidden) {
@@ -95,7 +95,7 @@ final class WifiSetup {
         cfg.preSharedKey = quote(passphrase);
         cfg.hiddenSSID = hidden;
         // SECURITY_TYPE_PSK covers WPA2 *and* WPA3-Personal: the framework adds the SAE
-        // params itself. Do not hand-set allowedKeyManagement bits - that is the old advice
+        // params itself. Do not hand-set allowedKeyManagement bits: that is the old advice
         // and it produces configs the modern supplicant rejects.
         cfg.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
 
@@ -111,7 +111,7 @@ final class WifiSetup {
             // This is the Samsung-deviation tripwire. AOSP permits a Device Owner here; One
             // UI ships its own Wi-Fi framework and it could not be verified remotely.
             return new Result(Stage.ADD_FAILED,
-                    "refused by the platform (SecurityException) - this build cannot join "
+                    "refused by the platform (SecurityException): this build cannot join "
                             + "Wi-Fi on this device", -1);
         } catch (Exception e) {
             return new Result(Stage.ADD_FAILED, e.getClass().getSimpleName(), -1);
@@ -131,11 +131,11 @@ final class WifiSetup {
 
         if (!enabled) {
             // The documented reason for a false here on a well-formed config is
-            // WifiGlobals.isDeprecatedSecurityTypeNetwork - i.e. the router is WEP or
+            // WifiGlobals.isDeprecatedSecurityTypeNetwork, i.e. the router is WEP or
             // WPA-Personal/TKIP only. Worth naming explicitly, because the fix is at the
             // router and no amount of retyping the password will help.
             return new Result(Stage.ENABLE_REFUSED,
-                    "the router refused the connection - it is probably running WEP or "
+                    "the router refused the connection: it is probably running WEP or "
                             + "WPA/TKIP, which Android no longer connects to", add.networkId);
         }
 
@@ -143,7 +143,7 @@ final class WifiSetup {
         return new Result(Stage.CONNECTING, "connecting", add.networkId);
     }
 
-    /** Existing saved network id for this SSID, or -1. Best effort - never throws. */
+    /** Existing saved network id for this SSID, or -1. Best effort, never throws. */
     private static int findExisting(WifiManager wm, String ssid) {
         try {
             List<WifiConfiguration> saved = wm.getConfiguredNetworks();

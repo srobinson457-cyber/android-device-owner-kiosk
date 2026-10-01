@@ -26,7 +26,7 @@ import android.widget.Toast;
  * lock-task re-assert are the security boundary of this whole project, and two copies of a
  * security boundary drift. The flavors differ only in what fills the screen.
  *
- * Subclasses supply the content view in onCreate BEFORE calling through, or after - the shell
+ * Subclasses supply the content view in onCreate BEFORE calling through, or after: the shell
  * touches no views of its own; the corner gesture reads the decor view, so it works over any
  * layout.
  */
@@ -95,7 +95,7 @@ public abstract class KioskShellActivity extends Activity {
         try {
             startLockTask();
         } catch (IllegalArgumentException ignored) {
-            // Not allowlisted for lock task - policy has not been applied yet.
+            // Not allowlisted for lock task: policy has not been applied yet.
         }
     }
 
@@ -129,8 +129,8 @@ public abstract class KioskShellActivity extends Activity {
 
     /**
      * Admin entry. Three ways in, in order of preference:
-     *  1. Remote maintenance flag from the policy Worker - no secret travels at all.
-     *  2. Offline challenge/response - works with the network down, which is exactly when a
+     *  1. Remote maintenance flag from the policy Worker: no secret travels at all.
+     *  2. Offline challenge/response: works with the network down, which is exactly when a
      *     stuck device is hardest to reach.
      *  3. Nothing. There is deliberately no "forgot it" path on the device.
      */

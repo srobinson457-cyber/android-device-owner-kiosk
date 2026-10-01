@@ -39,7 +39,7 @@ import java.util.Set;
 /**
  * "Join a different Wi-Fi network", reachable only through AdminGate.
  *
- * The audience for this screen is not the operator - it is a non-technical person on site,
+ * The audience for this screen is not the operator: it is a non-technical person on site,
  * on the phone, somewhere nobody with ADB will ever visit. That shapes three decisions:
  *
  *  1. TYPED SSID IS THE PRIMARY PATH, the scan list is a convenience. The join path
@@ -60,7 +60,7 @@ public class WifiSetupActivity extends Activity {
     /**
      * Association plus internet validation. 45s was too short and produced a FALSE FAILURE
      * on a phone hotspot: the tablet had genuinely joined, the screen said "still not
-     * connected", and - far worse - the recovery below then tore the good connection down.
+     * connected", and (far worse) the recovery below then tore the good connection down.
      * Validation on a hotspot backhauled by mobile data is not fast.
      */
     private static final long ATTEMPT_TIMEOUT_MS = 90_000L;
@@ -155,9 +155,9 @@ public class WifiSetupActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         ScrollView scroller = new ScrollView(this);
-        // The ScrollView is what fills the window, so IT needs the background - the child
+        // The ScrollView is what fills the window, so IT needs the background: the child
         // LinearLayout is only as tall as its content, which left the bottom two-thirds of
-        // the screen system-default grey.
+        // the screen system-default gray.
         scroller.setBackgroundColor(Color.parseColor("#001b3d"));
         scroller.addView(root);
         setContentView(scroller);
@@ -189,8 +189,8 @@ public class WifiSetupActivity extends Activity {
     }
 
     /**
-     * White-on-navy. The default EditText inherits near-black text and a dark grey hint,
-     * which on this background rendered the field labels almost invisible - and the person
+     * White-on-navy. The default EditText inherits near-black text and a dark gray hint,
+     * which on this background rendered the field labels almost invisible, and the person
      * using this screen is following instructions over the phone.
      */
     private void styleField(EditText f) {
@@ -235,7 +235,7 @@ public class WifiSetupActivity extends Activity {
         // WPA-PSK passphrases are 8-63 characters. Catching this here turns a silent,
         // asynchronous authentication failure into an immediate, obvious message.
         if (pass.length() < 8 || pass.length() > 63) {
-            state.setText("That password cannot be right - Wi-Fi passwords are between 8 "
+            state.setText("That password cannot be right. Wi-Fi passwords are between 8 "
                     + "and 63 characters. Check it and try again.");
             return;
         }
@@ -253,7 +253,7 @@ public class WifiSetupActivity extends Activity {
                 if (!r.ok()) {
                     finishAttempt("Could not connect.\n\n" + r.detail);
                 }
-                // On CONNECTING we say nothing yet - the watcher below owns the outcome,
+                // On CONNECTING we say nothing yet: the watcher below owns the outcome,
                 // because "the connect was requested" is not "the connect succeeded".
             });
         }).start();
@@ -276,7 +276,7 @@ public class WifiSetupActivity extends Activity {
                         // Android reports an authentication failure when the access point
                         // simply is not there any more, so "wrong password" is not safe to
                         // claim without checking. Observed live: a phone hotspot switched
-                        // itself off between attempts and the screen blamed the password -
+                        // itself off between attempts and the screen blamed the password,
                         // which is exactly the wrong thing to tell someone whose router is
                         // off or out of range, because they will retype a correct password
                         // for as long as they can stand it.
@@ -314,7 +314,7 @@ public class WifiSetupActivity extends Activity {
         f.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
         registerReceiver(wifiEvents, f, Context.RECEIVER_NOT_EXPORTED);
 
-        // Association is not the goal - reaching the managed app is. Wait for the network to be
+        // Association is not the goal: reaching the managed app is. Wait for the network to be
         // VALIDATED, which is the platform's own verdict on whether traffic actually flows.
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         if (cm != null) {
@@ -329,7 +329,7 @@ public class WifiSetupActivity extends Activity {
                     // the previous network was still connected and validated, so this fired
                     // immediately and reported "connected, internet is working" using the
                     // SSID the user had merely TYPED. Verified against a deliberately wrong
-                    // password - the screen claimed success while `cmd wifi status` showed
+                    // password: the screen claimed success while `cmd wifi status` showed
                     // the tablet had never left the old network.
                     //
                     // That is the exact walk-away failure this watcher exists to prevent, so
@@ -350,7 +350,7 @@ public class WifiSetupActivity extends Activity {
         timeout = () -> {
             // Associated with the RIGHT network but no validated internet yet is a very
             // different situation from never having got on at all, and it must not be
-            // reported as a failure - the tablet is on the network the user asked for.
+            // reported as a failure: the tablet is on the network the user asked for.
             if (ssid.equals(currentSsid())) {
                 finishAttempt("Connected to " + ssid + ", but the internet is not working "
                         + "yet.\n\nThe password was right. If the managed app does not load, the "
@@ -384,7 +384,7 @@ public class WifiSetupActivity extends Activity {
      * NOT quietly fail, it drops the connection you already had, and the device does not
      * re-associate on its own within any useful time. So a mistyped SSID would take the person
      * on site from "working internet" to "no internet", which is a strictly worse position than
-     * before they started - the exact opposite of what a recovery screen is for.
+     * before they started, the exact opposite of what a recovery screen is for.
      *
      * Cycling the radio makes the framework re-run auto-join across saved networks and pick
      * the best one actually present. disconnect()/reconnect() is the obvious alternative and
@@ -394,7 +394,7 @@ public class WifiSetupActivity extends Activity {
     private void recoverPreviousNetwork() {
         // NEVER tear down a connection to the network that was actually requested. The first
         // version skipped this check and cycled the radio on a join that had genuinely
-        // succeeded, kicking the tablet back off the new network and onto the old one - a
+        // succeeded, kicking the tablet back off the new network and onto the old one, a
         // recovery routine actively undoing the thing it was recovering.
         if (pendingSsid != null && pendingSsid.equals(currentSsid())) return;
         final WifiManager wm = getSystemService(WifiManager.class);
@@ -440,7 +440,7 @@ public class WifiSetupActivity extends Activity {
 
     /**
      * Best effort, and deliberately so. getScanResults() needs ACCESS_FINE_LOCATION *and*
-     * the system Location toggle on, with no Device Owner bypass - so as DO we grant
+     * the system Location toggle on, with no Device Owner bypass, so as DO we grant
      * ourselves the permission and force Location on. If any step fails the list stays
      * empty and the typed path is unaffected.
      */
@@ -449,7 +449,7 @@ public class WifiSetupActivity extends Activity {
      * cached meanwhile.
      *
      * The first version of this only called getScanResults(), and on the tablet it listed
-     * exactly one network - the one already connected - while a hotspot two feet away was
+     * exactly one network (the one already connected) while a hotspot two feet away was
      * missing. Cached scan results can be minutes old, and the whole point of this screen is
      * that something about the network situation has just CHANGED. Asking for a new scan is
      * the difference between a useful list and a misleading one.
@@ -505,7 +505,7 @@ public class WifiSetupActivity extends Activity {
             if (results == null || results.isEmpty()) { hideScanList(); return; }
 
             scanBox.removeAllViews();
-            scanLabel.setText("Nearby networks - tap one to fill in its name");
+            scanLabel.setText("Nearby networks: tap one to fill in its name");
 
             // Strongest first, de-duplicated: a dual-band router shows up once per band and
             // a list with the same name three times is worse than no list.
@@ -515,7 +515,7 @@ public class WifiSetupActivity extends Activity {
             for (ScanResult r : results) {
                 // Do NOT trim the SSID. A trailing space is legal and real networks have
                 // one, and trimming it would put a
-                // name into the field that no access point answers to - producing a
+                // name into the field that no access point answers to, producing a
                 // "network not found" failure on a network sitting right there in the list.
                 // Trim only to decide whether it is blank.
                 String name = r.SSID == null ? "" : r.SSID;
@@ -542,14 +542,14 @@ public class WifiSetupActivity extends Activity {
     }
 
     private void hideScanList() {
-        scanLabel.setText("Nearby networks could not be listed - type the network name above.");
+        scanLabel.setText("Nearby networks could not be listed. Type the network name above.");
         scanBox.removeAllViews();
     }
 
     /**
      * SSID of the network those capabilities describe. Read from the capabilities' own
      * TransportInfo rather than from WifiManager.getConnectionInfo(), so it answers "what is
-     * THIS network" instead of "what is the device connected to right now" - during a
+     * THIS network" instead of "what is the device connected to right now": during a
      * handover those are different, which is how the false success got through.
      */
     private String connectedSsid(NetworkCapabilities caps) {

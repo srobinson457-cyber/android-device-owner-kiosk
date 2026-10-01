@@ -3,7 +3,7 @@
  *
  * Returns { payload: base64(json), sig: hex HMAC-SHA256(secret, payload) }. The device
  * verifies the signature with its own device secret BEFORE parsing, because this document can
- * open a maintenance window - trusting TLS alone would make the unlock only as strong as
+ * open a maintenance window: trusting TLS alone would make the unlock only as strong as
  * whatever resolver that site happens to be using.
  *
  * TWO DEVICES, TWO SECRETS, ONE WORKER:
@@ -12,13 +12,13 @@
  *   /b       -> DEVICE B, a second device, signed with KIOSK_SECRET_B
  *
  * They are separated because a maintenance window is an UNLOCK. With one policy and one
- * secret, opening device B for a fix would also open the tablet - at a site nobody can
- * drive to - and a challenge/response code read aloud for one device would work on the other.
+ * secret, opening device B for a fix would also open the tablet (at a site nobody can
+ * drive to), and a challenge/response code read aloud for one device would work on the other.
  * Different secrets mean a payload minted for one device fails signature verification on the
  * other, which is the property that actually matters.
  *
  * Anything that is not exactly /b falls through to the tablet, preserving the original
- * catch-all behaviour: the deployed tablet build predates this routing and must keep working
+ * catch-all behavior: the deployed tablet build predates this routing and must keep working
  * byte-for-byte.
  *
  * The policies are source constants rather than KV on purpose: there are two devices, and
@@ -41,8 +41,8 @@ const TABLET_POLICY = {
 const DEVICE_B_POLICY = {
   stamp: 1,
   maintenance_minutes: 0,
-  // No target_url: device B's flavor has no WebView. Verified that nothing reads this field -
-  // RemotePolicy parses only `stamp` and `maintenance_minutes`, both with optLong defaults -
+  // No target_url: device B's flavor has no WebView. Verified that nothing reads this field:
+  // RemotePolicy parses only `stamp` and `maintenance_minutes`, both with optLong defaults,
   // so the tablet's copy is vestigial too, and its absence here breaks nothing.
   note: 'normal',
 };

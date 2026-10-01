@@ -13,7 +13,7 @@ import android.util.Log;
  *       --es token <TOKEN> --es cmd status
  *
  * Exported because `am broadcast` runs as shell and cannot reach a private receiver. The
- * token is a speed bump, not a security boundary - the real boundary is that no other app
+ * token is a speed bump, not a security boundary: the real boundary is that no other app
  * can be installed, and that DISALLOW_DEBUGGING_FEATURES removes ADB entirely at handover.
  * Results go to both the ordered-broadcast result and logcat, because `am broadcast`
  * truncates long result strings and the hide-apps output is long.

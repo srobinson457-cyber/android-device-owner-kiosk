@@ -22,7 +22,7 @@
 
       The two location permissions are ONLY for listing nearby networks: getScanResults
       requires ACCESS_FINE_LOCATION with no Device Owner bypass, and setPermissionGrantState
-      cannot grant a permission the app has not declared - so they have to be here, in this
+      cannot grant a permission the app has not declared, so they have to be here, in this
       build, or the scan list can never work. Joining a typed SSID needs none of it.
     -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />

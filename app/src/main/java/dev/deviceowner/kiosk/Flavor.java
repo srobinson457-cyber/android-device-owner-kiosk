@@ -47,7 +47,7 @@ final class Flavor {
      * or null on a device with no telephony.
      *
      * Do not skip this on a device that DOES have telephony. Lock task exempts the default
-     * dialer for tel: intents because the platform protects emergency dialling, so removing
+     * dialer for tel: intents because the platform protects emergency dialing, so removing
      * the OEM dialer from setLockTaskPackages is not enough by itself: a tel: link will still
      * launch it inside lock task.
      */

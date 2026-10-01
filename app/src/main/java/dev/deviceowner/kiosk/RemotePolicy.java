@@ -25,7 +25,7 @@ import javax.crypto.spec.SecretKeySpec;
  *  - authenticate with a per-DEVICE secret, never a user session, so the tablet can never
  *    orphan or refresh someone's auth token;
  *  - idempotent via a monotonically advancing stamp, so a repeated poll cannot re-apply;
- *  - FAIL-SAFE on any network or parse error - leave enforcement exactly as it is and retry
+ *  - FAIL-SAFE on any network or parse error: leave enforcement exactly as it is and retry
  *    on the next tick. For this kiosk fail-safe means STAYS LOCKED; the human escape is
  *    AdminGate's offline challenge/response, never a network timeout.
  *
@@ -126,8 +126,8 @@ public final class RemotePolicy {
             return;
         }
         if (!constantTimeEquals(hmacHex(secret, payloadB64), sig)) {
-            // A bad signature is the interesting case - log it loudly, change nothing.
-            Log.w(TAG, "policy poll: SIGNATURE MISMATCH - ignoring payload");
+            // A bad signature is the interesting case: log it loudly, change nothing.
+            Log.w(TAG, "policy poll: SIGNATURE MISMATCH, ignoring payload");
             return;
         }
 

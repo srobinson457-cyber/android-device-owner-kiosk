@@ -1,16 +1,22 @@
 # Android Device Owner Kiosk
 
+[![CI](https://github.com/srobinson457-cyber/android-device-owner-kiosk/actions/workflows/ci.yml/badge.svg)](https://github.com/srobinson457-cyber/android-device-owner-kiosk/actions/workflows/ci.yml)
+
 A working Android Device Owner implementation: full device lockdown, lock task, a
 challenge/response admin gate, and a signed remote policy channel, for a device you cannot
 physically reach.
 
 This is extracted from a build that has been running unattended on real hardware at a remote
 site. It is a reference implementation and a set of field notes, not a library. The
-interesting part is not the API calls, which are documented; it is the dozen places where the
-documented behaviour is not the actual behaviour, and what that costs you when the device is
+interesting part is not the API calls, which are documented; it is the nine places where the
+documented behavior is not the actual behavior, and what that costs you when the device is
 hours away and nobody near it is technical.
 
-Plain framework Java. No third-party dependencies.
+Extracted in September 2026 from private code I wrote and run in production; the history
+stays private because it contains private data.
+
+Plain framework Java. No third-party dependencies in the app; JUnit is used only by the local
+unit tests, which CI runs with a debug build on every push.
 
 ---
 
@@ -80,7 +86,7 @@ It did not error. It reported success, having hidden less than half the launcher
 
 ### Lock task exempts the default dialer, so removing it from the allowlist is not enough
 
-The platform protects emergency dialling. Dropping the OEM dialer from `setLockTaskPackages`
+The platform protects emergency dialing. Dropping the OEM dialer from `setLockTaskPackages`
 does **not** stop a `tel:` link from launching it, inside lock task, with
 `mLockTaskModeState=LOCKED`. That puts a full dialer, and everything it links to, one tap away.
 
@@ -110,7 +116,7 @@ The hidden-package list is computed at runtime. It was 55 entries on the referen
 a hardcoded copy breaks the first time an OTA adds one, in the direction of leaving something
 visible.
 
-Hide rather than suspend: a suspended app still shows a greyed icon and a system dialog, which
+Hide rather than suspend: a suspended app still shows a grayed icon and a system dialog, which
 just advertises that it exists.
 
 ### Do not trim SSIDs
