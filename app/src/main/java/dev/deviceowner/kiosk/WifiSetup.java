@@ -143,6 +143,17 @@ final class WifiSetup {
         return new Result(Stage.CONNECTING, "connecting", add.networkId);
     }
 
+    /**
+     * The SSID to join from the network-name field, or null when the field is blank.
+     *
+     * Trim only to decide whether it is blank. Leading and trailing spaces are legal in an
+     * SSID, and an access point named "Cafe " does not answer to "Cafe".
+     */
+    static String ssidForJoin(String fieldText) {
+        if (fieldText == null || fieldText.trim().isEmpty()) return null;
+        return fieldText;
+    }
+
     /** Existing saved network id for this SSID, or -1. Best effort, never throws. */
     private static int findExisting(WifiManager wm, String ssid) {
         try {

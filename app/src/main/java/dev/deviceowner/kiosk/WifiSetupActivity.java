@@ -224,11 +224,11 @@ public class WifiSetupActivity extends Activity {
     // ---------------------------------------------------------------- the join
 
     private void attemptJoin() {
-        final String ssid = ssidField.getText().toString().trim();
+        final String ssid = WifiSetup.ssidForJoin(ssidField.getText().toString());
         final String pass = passField.getText().toString();
         final boolean hidden = hiddenBox.isChecked();
 
-        if (ssid.isEmpty()) {
+        if (ssid == null) {
             state.setText("Enter the network name first.");
             return;
         }
@@ -513,11 +513,10 @@ public class WifiSetupActivity extends Activity {
             Set<String> seen = new LinkedHashSet<>();
             List<String> names = new ArrayList<>();
             for (ScanResult r : results) {
-                // Do NOT trim the SSID. A trailing space is legal and real networks have
-                // one, and trimming it would put a
-                // name into the field that no access point answers to, producing a
-                // "network not found" failure on a network sitting right there in the list.
-                // Trim only to decide whether it is blank.
+                // Do NOT trim the SSID. A trailing space is legal and real networks have one,
+                // and trimming it would put a name into the field that no access point
+                // answers to, producing a "network not found" failure on a network sitting
+                // right there in the list. Trim only to decide whether it is blank.
                 String name = r.SSID == null ? "" : r.SSID;
                 if (name.trim().isEmpty() || !seen.add(name)) continue;
                 names.add(name);
