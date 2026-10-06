@@ -43,8 +43,12 @@ public final class RemotePolicy {
     private static final String KEY_MAINT_UNTIL = "maintenance_until";
     private static final String KEY_LAST_POLL = "policy_last_poll";
 
-    /** Clock skew guard: a maintenance window more than a day out is treated as bogus. */
-    private static final long MAX_MAINTENANCE_MS = 24 * 60 * 60_000L;
+    /**
+     * Cap on a remote unlock: a longer maintenance_minutes is clamped to a day. A remote
+     * unlock only lets the admin screen open without a challenge/response; it disarms
+     * nothing. Not the same thing as KioskPolicy.LOCAL_MAINTENANCE_TTL_MS.
+     */
+    private static final long REMOTE_UNLOCK_MAX_MS = 24 * 60 * 60_000L;
 
     private static final AtomicBoolean inFlight = new AtomicBoolean(false);
 
@@ -151,7 +155,7 @@ public final class RemotePolicy {
         // cannot be replayed into a permanently-open window.
         long minutes = payload.optLong("maintenance_minutes", 0);
         if (minutes > 0) {
-            long until = Math.min(minutes * 60_000L, MAX_MAINTENANCE_MS)
+            long until = Math.min(minutes * 60_000L, REMOTE_UNLOCK_MAX_MS)
                     + System.currentTimeMillis();
             e.putLong(KEY_MAINT_UNTIL, until);
             Log.i(TAG, "policy: maintenance window opened for " + minutes + " min");

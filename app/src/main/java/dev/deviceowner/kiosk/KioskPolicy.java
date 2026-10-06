@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Device Owner policy. Split into separately-applicable steps rather than one apply() so
@@ -98,9 +99,9 @@ public final class KioskPolicy {
         add(d, a, UserManager.DISALLOW_USER_SWITCH, on, failed);
         add(d, a, UserManager.DISALLOW_REMOVE_USER, on, failed);
 
-        // Self-defence. NOTE: DISALLOW_INSTALL_APPS / DISALLOW_UNINSTALL_APPS deliberately
-        // live in lockInstall() instead: applying them here blocked `adb install` and locked
-        // us out of updating our own APK mid-build. They are a handover-time step.
+        // Self-defence. Install restrictions are not here: DISALLOW_UNINSTALL_APPS and
+        // DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY are the handover-time lockInstall() step,
+        // and DISALLOW_INSTALL_APPS is not applied at all (see lockInstall()).
         add(d, a, UserManager.DISALLOW_FACTORY_RESET, on, failed);
 
         // Accounts cannot be added or removed. Defence in depth: nothing reachable today can
@@ -264,28 +265,21 @@ public final class KioskPolicy {
         }
     }
 
-    /**
-     * Handover-time only. Blocks app install/uninstall device-wide, including `adb install`,
-     * so run this once the APK is final. Reversible with `clear`.
-     */
-    /**
-     * Let Android security updates install themselves, overnight, with nobody present.
-     *
-     * Without a policy the device follows the default: an OTA raises a NOTIFICATION and
-     * waits for someone to go to Settings and tap install. On this tablet the status bar is
-     * disabled so the notification is invisible, and Settings cannot be launched at all, so
-     * the update would sit there forever and the tablet would simply stop receiving security
-     * patches, silently, for as long as it exists.
-     *
-     * A windowed policy installs in a fixed local-time window instead. 03:00-05:00 so the
-     * reboot never lands mid-use, and the tablet is back on the managed app long before morning.
-     * Times are minutes from local midnight, and the clock is DO-locked to network time, so
-     * the window cannot be dragged around by changing the date.
-     */
-    private static final String KEY_MAINT_OPENED = "maintenance_opened_at";
+    // ---------------------------------------------------------------- maintenance mode
 
-    /** How long an unlocked tablet is allowed to stay unlocked before it closes itself. */
-    private static final long MAINTENANCE_MAX_MS = 60 * 60_000L;
+    /**
+     * When on-device maintenance mode was opened (wall-clock ms). Cleared once the armed flag
+     * is true again: relock() checks the flag after running its steps, and
+     * expireMaintenanceIfStale checks it on every kiosk start.
+     */
+    static final String KEY_MAINT_OPENED = "maintenance_opened_at";
+
+    /**
+     * How long on-device maintenance mode may stay open before the next kiosk start closes
+     * it. Not the same thing as RemotePolicy.REMOTE_UNLOCK_MAX_MS, which bounds a remote
+     * unlock of the admin screen and never disarms anything.
+     */
+    static final long LOCAL_MAINTENANCE_TTL_MS = 60 * 60_000L;
 
     /** Remember when maintenance mode was opened, so it can expire on its own. */
     static void markMaintenanceOpened(Context c) {
@@ -306,10 +300,19 @@ public final class KioskPolicy {
      *
      * An hour is generous for someone being talked through a fix on the phone, and bounded
      * enough that "forgot" costs an hour rather than forever. Called on every kiosk start, so
-     * a reboot mid-window does not reset the clock: the timestamp is absolute.
+     * a reboot mid-window does not reset the clock: the timestamp is absolute. If the relock
+     * does not re-arm the device, the marker stays and the next start tries again.
+     *
+     * @return true if the window had expired and a relock was attempted.
      */
     static boolean expireMaintenanceIfStale(Context c) {
-        SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return expireMaintenanceIfStale(c.getSharedPreferences(PREFS, Context.MODE_PRIVATE),
+                System.currentTimeMillis(), () -> relock(c));
+    }
+
+    /** expireMaintenanceIfStale(Context) with the clock and the relock passed in, for tests. */
+    static boolean expireMaintenanceIfStale(SharedPreferences p, long now,
+                                            Supplier<String> relock) {
         long opened = p.getLong(KEY_MAINT_OPENED, 0L);
         if (opened == 0L) return false;
         if (p.getBoolean(KEY_ARMED, false)) {
@@ -317,16 +320,57 @@ public final class KioskPolicy {
             p.edit().remove(KEY_MAINT_OPENED).apply();
             return false;
         }
-        if (System.currentTimeMillis() - opened < MAINTENANCE_MAX_MS) return false;
+        if (now - opened < LOCAL_MAINTENANCE_TTL_MS) return false;
 
-        Log.i(TAG, "maintenance window expired, re-locking automatically");
-        lockInstall(c, true);
-        arm(c, true);
-        lockDebugging(c, true);
-        p.edit().remove(KEY_MAINT_OPENED).apply();
+        Log.i(TAG, "maintenance window expired, re-locking automatically\n" + relock.get());
         return true;
     }
 
+    /**
+     * Close maintenance mode: re-apply the three steps that opening it lifted. Used by the
+     * admin screen's "Re-lock the kiosk" and by expireMaintenanceIfStale, so the order lives
+     * in one place.
+     */
+    static String relock(Context c) {
+        return relock(c.getSharedPreferences(PREFS, Context.MODE_PRIVATE),
+                () -> lockInstall(c, true),
+                () -> arm(c, true),
+                () -> lockDebugging(c, true));
+    }
+
+    /** relock(Context) with the three steps passed in, for tests. */
+    static String relock(SharedPreferences p, Supplier<String> lockInstall,
+                         Supplier<String> arm, Supplier<String> lockDebugging) {
+        StringBuilder log = new StringBuilder();
+        log.append(lockInstall.get()).append('\n');
+        log.append(arm.get()).append('\n');
+        // Debugging goes last, exactly as at handover: it is the step that removes our own
+        // way back in, so nothing may fail after it.
+        log.append(lockDebugging.get());
+        // arm() writes armed=true only when it succeeds. Until then keep the marker, so a
+        // failed re-arm is retried on the next start instead of leaving the device open.
+        if (p.getBoolean(KEY_ARMED, false)) {
+            p.edit().remove(KEY_MAINT_OPENED).apply();
+        }
+        return log.toString();
+    }
+
+    // ---------------------------------------------------------------- updates and installs
+
+    /**
+     * Let Android security updates install themselves, overnight, with nobody present.
+     *
+     * Without a policy the device follows the default: an OTA raises a NOTIFICATION and
+     * waits for someone to go to Settings and tap install. On this tablet the status bar is
+     * disabled so the notification is invisible, and Settings cannot be launched at all, so
+     * the update would sit there forever and the tablet would simply stop receiving security
+     * patches, silently, for as long as it exists.
+     *
+     * A windowed policy installs in a fixed local-time window instead. 03:00-05:00 so the
+     * reboot never lands mid-use, and the tablet is back on the managed app long before morning.
+     * Times are minutes from local midnight, and the clock is DO-locked to network time, so
+     * the window cannot be dragged around by changing the date.
+     */
     static String systemUpdates(Context c) {
         if (Build.VERSION.SDK_INT < 23) return "not supported";
         DevicePolicyManager d = dpm(c);
@@ -342,6 +386,13 @@ public final class KioskPolicy {
         }
     }
 
+    /**
+     * Handover-time step: blocks uninstalling apps and, on API 29+, installing from unknown
+     * sources. Reversible with `unlockinstall` or `clear`.
+     *
+     * It does not block installs in general: DISALLOW_INSTALL_APPS is deliberately left out
+     * (see below), so Play can keep Android System WebView patched.
+     */
     static String lockInstall(Context c, boolean locked) {
         DevicePolicyManager d = dpm(c);
         ComponentName a = admin(c);
@@ -383,23 +434,41 @@ public final class KioskPolicy {
     /**
      * The very last step before handover. Removes Developer options entirely (USB and
      * wireless debugging both), which means it also removes our own way back in. Everything
-     * else must be verified before this runs.
+     * else must be verified before this runs. locked=false lifts both again.
      */
     static String lockDebugging(Context c, boolean locked) {
         DevicePolicyManager d = dpm(c);
         ComponentName a = admin(c);
         if (d == null || !isOwner(c)) return "NOT DEVICE OWNER";
+        return lockDebugging((k, on) -> {
+            if (on) d.addUserRestriction(a, k); else d.clearUserRestriction(a, k);
+        }, locked);
+    }
+
+    /** Adds (on) or clears (off) one user restriction. Lets tests stand in for the DPM. */
+    interface RestrictionSetter {
+        void set(String key, boolean on);
+    }
+
+    /** lockDebugging(Context, boolean) against any RestrictionSetter, for tests. */
+    static String lockDebugging(RestrictionSetter r, boolean locked) {
         List<String> done = new ArrayList<>();
+        List<String> failed = new ArrayList<>();
         // Both of these remove our own access, so they go together and they go LAST.
         for (String k : new String[]{UserManager.DISALLOW_DEBUGGING_FEATURES,
                                      UserManager.DISALLOW_USB_FILE_TRANSFER}) {
             try {
-                if (locked) d.addUserRestriction(a, k); else d.clearUserRestriction(a, k);
+                r.set(k, locked);
                 done.add(k);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                failed.add(k + "(" + e.getClass().getSimpleName() + ")");
             }
         }
-        return "DEBUGGING+USB " + (locked ? "DISABLED (adb is gone)" : "re-enabled") + " " + done;
+        // Claim the outcome only when both took: "adb is gone" while it is not would be a
+        // diagnostic that lies.
+        String outcome = !failed.isEmpty() ? (locked ? "LOCK" : "UNLOCK") + " INCOMPLETE"
+                : locked ? "DISABLED (adb is gone)" : "re-enabled";
+        return "DEBUGGING+USB " + outcome + " " + done + " failed=" + failed;
     }
 
     // ---------------------------------------------------------------- HOME takeover
@@ -531,9 +600,9 @@ public final class KioskPolicy {
      * GLOBAL_ACTIONS is the ONLY lock-task flag that is on by DEFAULT; omitting it is what
      * removes the power long-press menu. OVERVIEW and NOTIFICATIONS are omitted too.
      *
-     * This is a constant rather than a literal inside arm() because two places now need the
-     * same value: arm(), and the re-assert on every kiosk launch that makes a temporary
-     * power-off grant expire by itself. Two copies of it would drift, and the way it would
+     * This is a constant rather than a literal inside arm() because three places need the
+     * same value: arm(), allowPowerOff(), and the re-assert on every kiosk launch that makes a
+     * temporary power-off grant expire by itself. Copies of it would drift, and the way it would
      * drift is "the power menu quietly stays available to the user".
      */
     static final int ARMED_LOCK_TASK_FEATURES = Flavor.armedLockTaskFeatures();

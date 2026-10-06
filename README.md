@@ -12,11 +12,14 @@ interesting part is not the API calls, which are documented; it is the nine plac
 documented behavior is not the actual behavior, and what that costs you when the device is
 hours away and nobody near it is technical.
 
-Extracted in September 2026 from private code I wrote and run in production; the history
-stays private because it contains private data.
+Extracted in September 2026 from private code I run in production, built agent-first with
+Claude Code; the history stays private because it contains private data. How I build and check
+code: [REVIEWING.md](https://github.com/srobinson457-cyber/srobinson457-cyber/blob/main/REVIEWING.md).
 
 Plain framework Java. No third-party dependencies in the app; JUnit is used only by the local
-unit tests, which CI runs with a debug build on every push.
+unit tests, which CI runs with a debug build on every push to main and every pull request.
+They cover the admin gate (responses, lockout, challenge expiry), the WebView origin check, SSID
+handling on the Wi-Fi screen, and the maintenance re-lock.
 
 ---
 
@@ -40,21 +43,23 @@ So the design goal is not "lock it down". It is **lock it down and still be able
 
 | File | Lines | What it does |
 |---|---:|---|
-| `KioskPolicy.java` | 720 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
-| `WifiSetupActivity.java` | 598 | On-device Wi-Fi provisioning, so the device can move to a new network without a computer. |
-| `ProbeActivity.java` | 308 | The admin console, reachable only through the gate. |
+| `KioskPolicy.java` | 789 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
+| `WifiSetupActivity.java` | 594 | On-device Wi-Fi provisioning, so the device can move to a new network without a computer. |
+| `ProbeActivity.java` | 302 | The admin console, reachable only through the gate. |
 | `KioskShellActivity.java` | 193 | Base activity: enters lock task, polls policy, hosts the hidden admin gesture. |
-| `RemotePolicy.java` | 181 | HMAC-signed policy polling. The only way to change anything after handover. |
-| `AdminGate.java` | 151 | HOTP-style challenge/response. The offline escape hatch. |
-| `WifiSetup.java` | 165 | Wi-Fi join primitives. |
+| `RemotePolicy.java` | 185 | HMAC-signed policy polling. The only way to change anything after handover. |
+| `AdminGate.java` | 169 | HOTP-style challenge/response. The offline escape hatch. |
+| `WifiSetup.java` | 174 | Wi-Fi join primitives. |
 | `AdminCommandReceiver.java` | 78 | Setup-time control surface over ADB. |
 | `AdminReceiver.java` | 17 | The `DeviceAdminReceiver` that `dpm set-device-owner` points at. |
 | `Flavor.java` | 127 | The one seam between the policy engine and a specific device type. |
-| `KioskActivity.java` | 103 | Reference HOME activity: a WebView pinned to one origin. |
-| `worker/` | 87 | A Cloudflare Worker serving signed policy documents. |
+| `KioskActivity.java` | 102 | Reference HOME activity: a WebView pinned to one origin. |
+| `OriginCheck.java` | 63 | The WebView's same-origin test: scheme, host and port, never a string prefix. |
+| `worker/` | 85 | A Cloudflare Worker serving signed policy documents. |
 
-`Flavor.java` and `KioskActivity.java` are written fresh for this repo as the minimal
-single-app reference case. Everything else is the deployed code with identifiers changed.
+`Flavor.java`, `KioskActivity.java` and `OriginCheck.java` are written fresh for this repo as
+the minimal single-app reference case. Everything else is the deployed code with identifiers
+changed.
 
 ---
 
@@ -106,9 +111,23 @@ also not sufficient on its own: `ADB_ENABLED` has to be set back to 1 explicitly
 
 Granting the power menu once, to let someone shut the device down, leaves it granted forever,
 across reboots, with nothing to indicate it happened. The feature set is re-asserted on every
-launch for exactly this reason. The same applies to a maintenance window: it is stored as a
-**duration** rather than a timestamp, so it cannot be replayed into a permanently open window,
-and it is expired before the armed check rather than after.
+launch for exactly this reason.
+
+Anything that opens the device needs the same treatment. There are two such mechanisms, with
+separate limits:
+
+- **Remote unlock** (`RemotePolicy`). The signed policy can let the admin screen open without
+  a challenge/response. It is sent as a **duration** (`maintenance_minutes`) rather than a
+  timestamp, so it cannot be replayed into a permanently open window, and the device caps it
+  at 24 hours (`REMOTE_UNLOCK_MAX_MS`). It opens the admin screen only; the lockdown stays
+  armed.
+- **On-device maintenance mode** (`KioskPolicy`). "Open maintenance mode" on the admin screen
+  disarms lock task and restores ADB, and that survives reboots. The device records when it was
+  opened as an absolute timestamp, and the first kiosk start more than an hour later
+  (`LOCAL_MAINTENANCE_TTL_MS`) re-locks it. That check runs before the armed check, because
+  maintenance mode is what cleared the armed flag. The marker is cleared once the armed flag is
+  true again. If a re-lock's arm step fails, the flag stays false, so every kiosk start after
+  the hour tries the re-lock again.
 
 ### A hardcoded package list rots silently on the first OTA
 
@@ -141,6 +160,10 @@ zone detection to be off.
 navigation silently rather than handing it to an external handler: an `ACTION_VIEW` launches a
 browser that is not in `setLockTaskPackages` and strands the device on a "blocked app" screen a
 non-technical user cannot escape.
+
+Compare the parsed scheme, host and port, not a string prefix. `https://example.com.evil.test/`
+and `https://example.com@evil.test/` both start with `https://example.com`, and neither is that
+host. `OriginCheck` does the comparison and has unit tests for those cases.
 
 Also disable file and content access. A kiosk WebView that can read `file://` URLs can read the
 app's own data directory, and that directory holds the admin secret.

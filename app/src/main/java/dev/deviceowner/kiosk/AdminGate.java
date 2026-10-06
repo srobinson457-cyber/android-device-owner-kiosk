@@ -7,6 +7,7 @@ import android.util.Log;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Locale;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -33,9 +34,9 @@ public final class AdminGate {
 
     private static final String TAG = "DOKiosk";
     private static final String PREFS = KioskPolicy.PREFS;
-    private static final String KEY_SECRET = "admin_secret";
-    private static final String KEY_FAILS = "admin_fails";
-    private static final String KEY_LOCKED_UNTIL = "admin_locked_until";
+    static final String KEY_SECRET = "admin_secret";
+    static final String KEY_FAILS = "admin_fails";
+    static final String KEY_LOCKED_UNTIL = "admin_locked_until";
 
     /** Challenges expire so a response overheard today is useless tomorrow. */
     private static final long CHALLENGE_TTL_MS = 5 * 60_000L;
@@ -67,32 +68,49 @@ public final class AdminGate {
 
     /** Issue a fresh challenge. Random, not time-derived, so it cannot be precomputed. */
     static String newChallenge() {
+        return newChallenge(SystemClock.elapsedRealtime());
+    }
+
+    /** newChallenge() with the clock passed in, for tests. */
+    static String newChallenge(long elapsedNow) {
         byte[] b = new byte[4];
         new SecureRandom().nextBytes(b);
         int n = ((b[0] & 0x7f) << 24) | ((b[1] & 0xff) << 16)
                 | ((b[2] & 0xff) << 8) | (b[3] & 0xff);
-        activeChallenge = String.format("%06d", n % 1_000_000);
-        challengeIssuedAt = SystemClock.elapsedRealtime();
+        activeChallenge = String.format(Locale.ROOT, "%06d", n % 1_000_000);
+        challengeIssuedAt = elapsedNow;
         return activeChallenge;
     }
 
     static long lockedForMs(Context c) {
-        long until = prefs(c).getLong(KEY_LOCKED_UNTIL, 0L);
-        long now = System.currentTimeMillis();
-        return until > now ? until - now : 0L;
+        return lockedForMs(prefs(c), System.currentTimeMillis());
+    }
+
+    static long lockedForMs(SharedPreferences p, long wallNow) {
+        long until = p.getLong(KEY_LOCKED_UNTIL, 0L);
+        return until > wallNow ? until - wallNow : 0L;
     }
 
     /** @return null on success, otherwise a human-readable reason. */
     static String verify(Context c, String response) {
-        long lock = lockedForMs(c);
+        return verify(prefs(c), response,
+                SystemClock.elapsedRealtime(), System.currentTimeMillis());
+    }
+
+    /**
+     * verify(Context, String) with the preferences and both clocks passed in, for tests
+     * (SystemClock returns 0 off-device). Challenge age uses elapsed time; the lockout uses
+     * wall-clock time because it is stored and has to survive a reboot.
+     */
+    static String verify(SharedPreferences p, String response, long elapsedNow, long wallNow) {
+        long lock = lockedForMs(p, wallNow);
         if (lock > 0) {
             return "Locked for " + (lock / 1000) + "s";
         }
-        if (activeChallenge == null
-                || SystemClock.elapsedRealtime() - challengeIssuedAt > CHALLENGE_TTL_MS) {
+        if (activeChallenge == null || elapsedNow - challengeIssuedAt > CHALLENGE_TTL_MS) {
             return "Challenge expired: reopen";
         }
-        String secret = prefs(c).getString(KEY_SECRET, null);
+        String secret = p.getString(KEY_SECRET, null);
         if (secret == null) {
             // Never fail open. An unprovisioned secret must not mean "anyone may in".
             return "No admin secret provisioned on this device";
@@ -102,17 +120,17 @@ public final class AdminGate {
         if (expected == null) return "Internal error";
 
         if (constantTimeEquals(expected, response == null ? "" : response.trim())) {
-            prefs(c).edit().remove(KEY_FAILS).remove(KEY_LOCKED_UNTIL).apply();
+            p.edit().remove(KEY_FAILS).remove(KEY_LOCKED_UNTIL).apply();
             activeChallenge = null;
             Log.i(TAG, "admin gate: unlocked");
             return null;
         }
 
-        int fails = prefs(c).getInt(KEY_FAILS, 0) + 1;
-        SharedPreferences.Editor e = prefs(c).edit().putInt(KEY_FAILS, fails);
+        int fails = p.getInt(KEY_FAILS, 0) + 1;
+        SharedPreferences.Editor e = p.edit().putInt(KEY_FAILS, fails);
         String msg = "Incorrect (" + fails + "/" + MAX_FAILS + ")";
         if (fails >= MAX_FAILS) {
-            e.putLong(KEY_LOCKED_UNTIL, System.currentTimeMillis() + LOCKOUT_MS).putInt(KEY_FAILS, 0);
+            e.putLong(KEY_LOCKED_UNTIL, wallNow + LOCKOUT_MS).putInt(KEY_FAILS, 0);
             msg = "Too many attempts: locked 5 min";
             activeChallenge = null;
         }
@@ -135,7 +153,7 @@ public final class AdminGate {
                     | ((h[off + 1] & 0xff) << 16)
                     | ((h[off + 2] & 0xff) << 8)
                     | (h[off + 3] & 0xff);
-            return String.format("%06d", bin % 1_000_000);
+            return String.format(Locale.ROOT, "%06d", bin % 1_000_000);
         } catch (Exception e) {
             Log.e(TAG, "hmac failed", e);
             return null;

@@ -224,13 +224,7 @@ public class ProbeActivity extends Activity {
     }
 
     private void relock() {
-        StringBuilder log = new StringBuilder();
-        log.append(KioskPolicy.lockInstall(this, true)).append('\n');
-        log.append(KioskPolicy.arm(this, true)).append('\n');
-        // Debugging goes last, exactly as at handover: it is the step that removes our own
-        // way back in, so nothing may fail after it.
-        log.append(KioskPolicy.lockDebugging(this, true));
-        toast(log.toString());
+        toast(KioskPolicy.relock(this));
         render();
     }
 

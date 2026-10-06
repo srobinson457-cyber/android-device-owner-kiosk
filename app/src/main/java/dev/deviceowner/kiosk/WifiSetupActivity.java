@@ -163,9 +163,8 @@ public class WifiSetupActivity extends Activity {
         setContentView(scroller);
 
         // targetSdk 35 means the window is edge-to-edge and nothing is inset for us, so
-        // without this the first line of text sits underneath the status bar. Same class of
-        // bug as a floating action button that started this whole thread: a fixed offset against
-        // a system bar whose height is not fixed.
+        // without this the first line of text sits underneath the status bar: a fixed offset
+        // against a system bar whose height is not fixed.
         if (Build.VERSION.SDK_INT >= 30) {
             scroller.setOnApplyWindowInsetsListener((v, insets) -> {
                 Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
@@ -224,11 +223,11 @@ public class WifiSetupActivity extends Activity {
     // ---------------------------------------------------------------- the join
 
     private void attemptJoin() {
-        final String ssid = ssidField.getText().toString().trim();
+        final String ssid = WifiSetup.ssidForJoin(ssidField.getText().toString());
         final String pass = passField.getText().toString();
         final boolean hidden = hiddenBox.isChecked();
 
-        if (ssid.isEmpty()) {
+        if (ssid == null) {
             state.setText("Enter the network name first.");
             return;
         }
@@ -309,10 +308,9 @@ public class WifiSetupActivity extends Activity {
                 }
             }
         };
-        IntentFilter f = new IntentFilter();
-        f.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
-        f.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
-        registerReceiver(wifiEvents, f, Context.RECEIVER_NOT_EXPORTED);
+        registerReceiver(wifiEvents,
+                new IntentFilter(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION),
+                Context.RECEIVER_NOT_EXPORTED);
 
         // Association is not the goal: reaching the managed app is. Wait for the network to be
         // VALIDATED, which is the platform's own verdict on whether traffic actually flows.
@@ -439,14 +437,13 @@ public class WifiSetupActivity extends Activity {
     // ---------------------------------------------------------------- scan list
 
     /**
+     * Grant ourselves what scanning needs, kick off a FRESH scan, and render whatever is
+     * cached meanwhile.
+     *
      * Best effort, and deliberately so. getScanResults() needs ACCESS_FINE_LOCATION *and*
      * the system Location toggle on, with no Device Owner bypass, so as DO we grant
      * ourselves the permission and force Location on. If any step fails the list stays
      * empty and the typed path is unaffected.
-     */
-    /**
-     * Grant ourselves what scanning needs, kick off a FRESH scan, and render whatever is
-     * cached meanwhile.
      *
      * The first version of this only called getScanResults(), and on the tablet it listed
      * exactly one network (the one already connected) while a hotspot two feet away was
@@ -513,11 +510,10 @@ public class WifiSetupActivity extends Activity {
             Set<String> seen = new LinkedHashSet<>();
             List<String> names = new ArrayList<>();
             for (ScanResult r : results) {
-                // Do NOT trim the SSID. A trailing space is legal and real networks have
-                // one, and trimming it would put a
-                // name into the field that no access point answers to, producing a
-                // "network not found" failure on a network sitting right there in the list.
-                // Trim only to decide whether it is blank.
+                // Do NOT trim the SSID. A trailing space is legal and real networks have one,
+                // and trimming it would put a name into the field that no access point
+                // answers to, producing a "network not found" failure on a network sitting
+                // right there in the list. Trim only to decide whether it is blank.
                 String name = r.SSID == null ? "" : r.SSID;
                 if (name.trim().isEmpty() || !seen.add(name)) continue;
                 names.add(name);

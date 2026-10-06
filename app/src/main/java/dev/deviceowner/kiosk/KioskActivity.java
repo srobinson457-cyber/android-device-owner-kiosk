@@ -29,13 +29,19 @@ import android.webkit.WebViewClient;
  *      some OEM shells; being the preferred handler is what actually closes the exit.
  *   2. NEVER LEAVING THE ALLOWLISTED ORIGIN. A WebView that follows an off-site link inside a
  *      kiosk is an unrestricted browser with no address bar, which is worse than a browser.
- *      shouldOverrideUrlLoading below is load-bearing security, not a nicety.
+ *      shouldOverrideUrlLoading below is load-bearing security, not a nicety. It allows a
+ *      link only when OriginCheck finds the same scheme, host and port as START_URL.
  *   3. HAVING NO VISIBLE WAY OUT. Back at the root is a no-op rather than finish(), because
  *      finishing HOME briefly exposes whatever is behind it.
  */
 public class KioskActivity extends KioskShellActivity {
 
-    /** Replace with your own origin, or drive it from remote policy the way RemotePolicy does. */
+    /**
+     * Replace with your own site. Its origin (scheme, host and port) is the only one the
+     * WebView will navigate to. It must be an http(s) URL with a DNS hostname that
+     * java.net.URI can parse: file:// or a host containing '_' makes OriginCheck refuse every
+     * navigation, by design, because it fails closed.
+     */
     private static final String START_URL = "https://example.com/";
 
     private WebView web;
@@ -57,7 +63,7 @@ public class KioskActivity extends KioskShellActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest req) {
                 String url = req.getUrl().toString();
-                if (url.startsWith(originOf(START_URL))) {
+                if (OriginCheck.isAllowed(url, START_URL)) {
                     return false; // same origin, let the WebView load it
                 }
                 // Anything else is refused silently rather than handed to an external handler.
@@ -92,12 +98,5 @@ public class KioskActivity extends KioskShellActivity {
                         | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_FULLSCREEN
                         | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-    }
-
-    private static String originOf(String url) {
-        int scheme = url.indexOf("://");
-        if (scheme < 0) return url;
-        int slash = url.indexOf('/', scheme + 3);
-        return slash < 0 ? url : url.substring(0, slash);
     }
 }
