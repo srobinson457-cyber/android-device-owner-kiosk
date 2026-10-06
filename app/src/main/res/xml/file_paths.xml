@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <!-- Only the capture scratch dir is ever exposed, never the whole cache. -->
-    <cache-path name="captures" path="captures/" />
-</paths>

@@ -106,9 +106,22 @@ also not sufficient on its own: `ADB_ENABLED` has to be set back to 1 explicitly
 
 Granting the power menu once, to let someone shut the device down, leaves it granted forever,
 across reboots, with nothing to indicate it happened. The feature set is re-asserted on every
-launch for exactly this reason. The same applies to a maintenance window: it is stored as a
-**duration** rather than a timestamp, so it cannot be replayed into a permanently open window,
-and it is expired before the armed check rather than after.
+launch for exactly this reason.
+
+Anything that opens the device needs the same treatment. There are two such mechanisms, with
+separate limits:
+
+- **Remote unlock** (`RemotePolicy`). The signed policy can let the admin screen open without
+  a challenge/response. It is sent as a **duration** (`maintenance_minutes`) rather than a
+  timestamp, so it cannot be replayed into a permanently open window, and the device caps it
+  at 24 hours (`REMOTE_UNLOCK_MAX_MS`). It opens the admin screen only; the lockdown stays
+  armed.
+- **On-device maintenance mode** (`KioskPolicy`). "Open maintenance mode" on the admin screen
+  disarms lock task and restores ADB, and that survives reboots. The device records when it was
+  opened as an absolute timestamp, and the first kiosk start more than an hour later
+  (`LOCAL_MAINTENANCE_TTL_MS`) re-locks it. That check runs before the armed check, because
+  maintenance mode is what cleared the armed flag. The marker is cleared only once the re-lock
+  has actually re-armed the device, so a failed re-lock is retried on the next start.
 
 ### A hardcoded package list rots silently on the first OTA
 

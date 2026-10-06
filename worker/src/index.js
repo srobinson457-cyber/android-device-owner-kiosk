@@ -28,22 +28,20 @@
  * redeploy. The stamp MUST increase or the device ignores the change (idempotency).
  */
 
+// The device reads only `stamp` and `maintenance_minutes` (RemotePolicy); `note` is for humans.
 const TABLET_POLICY = {
   stamp: 1,
   // 0 = locked down normally. Set e.g. 30 to let the admin screen open without a
-  // challenge/response for the next 30 minutes. It is a DURATION, not a timestamp: immune to
-  // clock skew, and it cannot be replayed into a permanently-open window.
+  // challenge/response for the next 30 minutes (the device caps it at 24 hours). It is a
+  // DURATION, not a timestamp: immune to clock skew, and it cannot be replayed into a
+  // permanently-open window.
   maintenance_minutes: 0,
-  target_url: 'https://example.com/',
   note: 'normal',
 };
 
 const DEVICE_B_POLICY = {
   stamp: 1,
   maintenance_minutes: 0,
-  // No target_url: device B's flavor has no WebView. Verified that nothing reads this field:
-  // RemotePolicy parses only `stamp` and `maintenance_minutes`, both with optLong defaults,
-  // so the tablet's copy is vestigial too, and its absence here breaks nothing.
   note: 'normal',
 };
 

@@ -5,9 +5,9 @@ import android.content.ComponentName;
 import android.content.Context;
 
 /**
- * Device admin component. Its only job in the probe build is to exist, so that
+ * Device admin component. Its only job is to exist, so that
  * `adb shell dpm set-device-owner dev.deviceowner.kiosk/.AdminReceiver` has
- * something to bind to. Policy application lands in phase 3.
+ * something to bind to. Policy is applied by KioskPolicy, not here.
  */
 public class AdminReceiver extends DeviceAdminReceiver {
 

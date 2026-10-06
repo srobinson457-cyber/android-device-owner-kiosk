@@ -49,12 +49,10 @@ final class WifiSetup {
     static final class Result {
         final Stage stage;
         final String detail;
-        final int networkId;
 
-        Result(Stage stage, String detail, int networkId) {
+        Result(Stage stage, String detail) {
             this.stage = stage;
             this.detail = detail;
-            this.networkId = networkId;
         }
 
         boolean ok() { return stage == Stage.CONNECTING; }
@@ -76,7 +74,7 @@ final class WifiSetup {
      */
     static Result join(Context c, String ssid, String passphrase, boolean hidden) {
         WifiManager wm = c.getSystemService(WifiManager.class);
-        if (wm == null) return new Result(Stage.ADD_FAILED, "no WifiManager", -1);
+        if (wm == null) return new Result(Stage.ADD_FAILED, "no WifiManager");
 
         // Deprecated for ordinary apps, exempt for Device Owner. If Wi-Fi is off, nothing
         // below can work, and there is no Settings toggle to turn it back on by hand.
@@ -112,21 +110,21 @@ final class WifiSetup {
             // UI ships its own Wi-Fi framework and it could not be verified remotely.
             return new Result(Stage.ADD_FAILED,
                     "refused by the platform (SecurityException): this build cannot join "
-                            + "Wi-Fi on this device", -1);
+                            + "Wi-Fi on this device");
         } catch (Exception e) {
-            return new Result(Stage.ADD_FAILED, e.getClass().getSimpleName(), -1);
+            return new Result(Stage.ADD_FAILED, e.getClass().getSimpleName());
         }
 
         if (add == null || add.statusCode != WifiManager.AddNetworkResult.STATUS_SUCCESS) {
             int code = add == null ? -1 : add.statusCode;
-            return new Result(Stage.ADD_FAILED, "add rejected, status " + code, -1);
+            return new Result(Stage.ADD_FAILED, "add rejected, status " + code);
         }
 
         boolean enabled;
         try {
             enabled = wm.enableNetwork(add.networkId, true);
         } catch (Exception e) {
-            return new Result(Stage.ENABLE_REFUSED, e.getClass().getSimpleName(), add.networkId);
+            return new Result(Stage.ENABLE_REFUSED, e.getClass().getSimpleName());
         }
 
         if (!enabled) {
@@ -136,11 +134,11 @@ final class WifiSetup {
             // router and no amount of retyping the password will help.
             return new Result(Stage.ENABLE_REFUSED,
                     "the router refused the connection: it is probably running WEP or "
-                            + "WPA/TKIP, which Android no longer connects to", add.networkId);
+                            + "WPA/TKIP, which Android no longer connects to");
         }
 
         Log.i(TAG, "wifi: connecting to netId=" + add.networkId);
-        return new Result(Stage.CONNECTING, "connecting", add.networkId);
+        return new Result(Stage.CONNECTING, "connecting");
     }
 
     /**
