@@ -38,7 +38,9 @@ public class KioskActivity extends KioskShellActivity {
 
     /**
      * Replace with your own site. Its origin (scheme, host and port) is the only one the
-     * WebView will navigate to.
+     * WebView will navigate to. It must be an http(s) URL with a DNS hostname that
+     * java.net.URI can parse: file:// or a host containing '_' makes OriginCheck refuse every
+     * navigation, by design, because it fails closed.
      */
     private static final String START_URL = "https://example.com/";
 

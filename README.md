@@ -42,7 +42,7 @@ So the design goal is not "lock it down". It is **lock it down and still be able
 
 | File | Lines | What it does |
 |---|---:|---|
-| `KioskPolicy.java` | 788 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
+| `KioskPolicy.java` | 789 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
 | `WifiSetupActivity.java` | 594 | On-device Wi-Fi provisioning, so the device can move to a new network without a computer. |
 | `ProbeActivity.java` | 302 | The admin console, reachable only through the gate. |
 | `KioskShellActivity.java` | 193 | Base activity: enters lock task, polls policy, hosts the hidden admin gesture. |
@@ -52,7 +52,7 @@ So the design goal is not "lock it down". It is **lock it down and still be able
 | `AdminCommandReceiver.java` | 78 | Setup-time control surface over ADB. |
 | `AdminReceiver.java` | 17 | The `DeviceAdminReceiver` that `dpm set-device-owner` points at. |
 | `Flavor.java` | 127 | The one seam between the policy engine and a specific device type. |
-| `KioskActivity.java` | 100 | Reference HOME activity: a WebView pinned to one origin. |
+| `KioskActivity.java` | 102 | Reference HOME activity: a WebView pinned to one origin. |
 | `OriginCheck.java` | 63 | The WebView's same-origin test: scheme, host and port, never a string prefix. |
 | `worker/` | 85 | A Cloudflare Worker serving signed policy documents. |
 
@@ -124,8 +124,9 @@ separate limits:
   disarms lock task and restores ADB, and that survives reboots. The device records when it was
   opened as an absolute timestamp, and the first kiosk start more than an hour later
   (`LOCAL_MAINTENANCE_TTL_MS`) re-locks it. That check runs before the armed check, because
-  maintenance mode is what cleared the armed flag. The marker is cleared only once the re-lock
-  has actually re-armed the device, so a failed re-lock is retried on the next start.
+  maintenance mode is what cleared the armed flag. The marker is cleared once the armed flag is
+  true again. If a re-lock's arm step fails, the flag stays false, so every kiosk start after
+  the hour tries the re-lock again.
 
 ### A hardcoded package list rots silently on the first OTA
 

@@ -268,8 +268,9 @@ public final class KioskPolicy {
     // ---------------------------------------------------------------- maintenance mode
 
     /**
-     * When on-device maintenance mode was opened (wall-clock ms). Absent when it is closed.
-     * Cleared only once a relock has actually re-armed the device.
+     * When on-device maintenance mode was opened (wall-clock ms). Cleared once the armed flag
+     * is true again: relock() checks the flag after running its steps, and
+     * expireMaintenanceIfStale checks it on every kiosk start.
      */
     static final String KEY_MAINT_OPENED = "maintenance_opened_at";
 
