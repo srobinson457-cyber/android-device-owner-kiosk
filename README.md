@@ -16,7 +16,9 @@ Extracted in September 2026 from private code I wrote and run in production; the
 stays private because it contains private data.
 
 Plain framework Java. No third-party dependencies in the app; JUnit is used only by the local
-unit tests, which CI runs with a debug build on every push.
+unit tests, which CI runs with a debug build on every push to main and every pull request.
+They cover the admin gate (responses, lockout, challenge expiry), the WebView origin check, SSID
+handling on the Wi-Fi screen, and the maintenance re-lock.
 
 ---
 
@@ -40,21 +42,23 @@ So the design goal is not "lock it down". It is **lock it down and still be able
 
 | File | Lines | What it does |
 |---|---:|---|
-| `KioskPolicy.java` | 720 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
-| `WifiSetupActivity.java` | 598 | On-device Wi-Fi provisioning, so the device can move to a new network without a computer. |
-| `ProbeActivity.java` | 308 | The admin console, reachable only through the gate. |
+| `KioskPolicy.java` | 788 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
+| `WifiSetupActivity.java` | 594 | On-device Wi-Fi provisioning, so the device can move to a new network without a computer. |
+| `ProbeActivity.java` | 302 | The admin console, reachable only through the gate. |
 | `KioskShellActivity.java` | 193 | Base activity: enters lock task, polls policy, hosts the hidden admin gesture. |
-| `RemotePolicy.java` | 181 | HMAC-signed policy polling. The only way to change anything after handover. |
-| `AdminGate.java` | 151 | HOTP-style challenge/response. The offline escape hatch. |
-| `WifiSetup.java` | 165 | Wi-Fi join primitives. |
+| `RemotePolicy.java` | 185 | HMAC-signed policy polling. The only way to change anything after handover. |
+| `AdminGate.java` | 168 | HOTP-style challenge/response. The offline escape hatch. |
+| `WifiSetup.java` | 174 | Wi-Fi join primitives. |
 | `AdminCommandReceiver.java` | 78 | Setup-time control surface over ADB. |
 | `AdminReceiver.java` | 17 | The `DeviceAdminReceiver` that `dpm set-device-owner` points at. |
 | `Flavor.java` | 127 | The one seam between the policy engine and a specific device type. |
-| `KioskActivity.java` | 103 | Reference HOME activity: a WebView pinned to one origin. |
-| `worker/` | 87 | A Cloudflare Worker serving signed policy documents. |
+| `KioskActivity.java` | 100 | Reference HOME activity: a WebView pinned to one origin. |
+| `OriginCheck.java` | 63 | The WebView's same-origin test: scheme, host and port, never a string prefix. |
+| `worker/` | 85 | A Cloudflare Worker serving signed policy documents. |
 
-`Flavor.java` and `KioskActivity.java` are written fresh for this repo as the minimal
-single-app reference case. Everything else is the deployed code with identifiers changed.
+`Flavor.java`, `KioskActivity.java` and `OriginCheck.java` are written fresh for this repo as
+the minimal single-app reference case. Everything else is the deployed code with identifiers
+changed.
 
 ---
 
