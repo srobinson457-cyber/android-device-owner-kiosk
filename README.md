@@ -142,6 +142,10 @@ navigation silently rather than handing it to an external handler: an `ACTION_VI
 browser that is not in `setLockTaskPackages` and strands the device on a "blocked app" screen a
 non-technical user cannot escape.
 
+Compare the parsed scheme, host and port, not a string prefix. `https://example.com.evil.test/`
+and `https://example.com@evil.test/` both start with `https://example.com`, and neither is that
+host. `OriginCheck` does the comparison and has unit tests for those cases.
+
 Also disable file and content access. A kiosk WebView that can read `file://` URLs can read the
 app's own data directory, and that directory holds the admin secret.
 
