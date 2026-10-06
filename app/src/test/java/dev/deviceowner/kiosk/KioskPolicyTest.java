@@ -100,6 +100,17 @@ public class KioskPolicyTest {
     }
 
     @Test
+    public void lockDebuggingReportsIncompleteUnlock() {
+        String r = KioskPolicy.lockDebugging((key, on) -> {
+            if (key.equals("no_debugging_features")) throw new SecurityException("refused");
+        }, false);
+        assertTrue("a failed unlock must say so: " + r, r.contains("UNLOCK INCOMPLETE"));
+        assertFalse("must not claim success: " + r, r.contains("re-enabled"));
+        assertTrue("must name the failed restriction: " + r,
+                r.contains("failed=[no_debugging_features(SecurityException)]"));
+    }
+
+    @Test
     public void lockDebuggingReportsSuccessWhenBothApply() {
         List<String> applied = new ArrayList<>();
         String r = KioskPolicy.lockDebugging((key, on) -> applied.add(key + "=" + on), true);

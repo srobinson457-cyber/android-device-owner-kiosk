@@ -43,6 +43,15 @@ public class AdminGateVerifyTest {
     }
 
     @Test
+    public void correctResponseUsesUpTheChallenge() {
+        String response = right();
+        assertNull(AdminGate.verify(prefs, response, ISSUED + 1_000, WALL));
+        // Well inside the five minutes, so only a used-up challenge can refuse this.
+        assertEquals("a response must not unlock twice", "Challenge expired: reopen",
+                AdminGate.verify(prefs, response, ISSUED + 2_000, WALL));
+    }
+
+    @Test
     public void fifthWrongResponseLocksForFiveMinutesAndClearsChallenge() {
         for (int i = 1; i <= 4; i++) {
             assertEquals("Incorrect (" + i + "/5)",

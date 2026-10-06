@@ -38,6 +38,8 @@ public class OriginCheckTest {
     @Test
     public void refusesOtherScheme() {
         refused("http://example.com/");
+        // Same host and same effective port (443), so only the scheme comparison refuses it.
+        refused("http://example.com:443/");
         refused("intent://example.com/#Intent;end");
         refused("javascript:alert('https://example.com/')");
     }
