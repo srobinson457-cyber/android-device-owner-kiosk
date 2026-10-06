@@ -5,6 +5,8 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+import java.util.Locale;
+
 /**
  * Pins AdminGate.respond(), the function any off-device responder has to mirror exactly.
  *
@@ -48,6 +50,23 @@ public class AdminGateTest {
         for (int i = 0; i < 200; i++) {
             String code = AdminGate.respond(SECRET, String.format("%06d", i * 4999));
             assertTrue("not six digits: " + code, code.matches("\\d{6}"));
+        }
+    }
+
+    @Test
+    public void codesAreAsciiDigitsWhateverTheDefaultLocale() {
+        // In ar-EG (and fa-IR, bn-BD, ar) a locale-sensitive "%06d" prints non-ASCII digits,
+        // which the person at the device cannot type back and no off-device responder expects.
+        Locale saved = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("ar-EG"));
+            String challenge = AdminGate.newChallenge(0L);
+            assertTrue("challenge not ASCII digits: " + challenge,
+                    challenge.matches("[0-9]{6}"));
+            // The same vector as above, so this checks respond() on its own.
+            assertEquals("127931", AdminGate.respond(SECRET, "000000"));
+        } finally {
+            Locale.setDefault(saved);
         }
     }
 }

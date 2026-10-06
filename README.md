@@ -47,7 +47,7 @@ So the design goal is not "lock it down". It is **lock it down and still be able
 | `ProbeActivity.java` | 302 | The admin console, reachable only through the gate. |
 | `KioskShellActivity.java` | 193 | Base activity: enters lock task, polls policy, hosts the hidden admin gesture. |
 | `RemotePolicy.java` | 185 | HMAC-signed policy polling. The only way to change anything after handover. |
-| `AdminGate.java` | 168 | HOTP-style challenge/response. The offline escape hatch. |
+| `AdminGate.java` | 169 | HOTP-style challenge/response. The offline escape hatch. |
 | `WifiSetup.java` | 174 | Wi-Fi join primitives. |
 | `AdminCommandReceiver.java` | 78 | Setup-time control surface over ADB. |
 | `AdminReceiver.java` | 17 | The `DeviceAdminReceiver` that `dpm set-device-owner` points at. |

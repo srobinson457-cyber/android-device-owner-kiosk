@@ -7,6 +7,7 @@ import android.util.Log;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Locale;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -76,7 +77,7 @@ public final class AdminGate {
         new SecureRandom().nextBytes(b);
         int n = ((b[0] & 0x7f) << 24) | ((b[1] & 0xff) << 16)
                 | ((b[2] & 0xff) << 8) | (b[3] & 0xff);
-        activeChallenge = String.format("%06d", n % 1_000_000);
+        activeChallenge = String.format(Locale.ROOT, "%06d", n % 1_000_000);
         challengeIssuedAt = elapsedNow;
         return activeChallenge;
     }
@@ -152,7 +153,7 @@ public final class AdminGate {
                     | ((h[off + 1] & 0xff) << 16)
                     | ((h[off + 2] & 0xff) << 8)
                     | (h[off + 3] & 0xff);
-            return String.format("%06d", bin % 1_000_000);
+            return String.format(Locale.ROOT, "%06d", bin % 1_000_000);
         } catch (Exception e) {
             Log.e(TAG, "hmac failed", e);
             return null;
