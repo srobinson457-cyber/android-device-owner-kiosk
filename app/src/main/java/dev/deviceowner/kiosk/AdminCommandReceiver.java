@@ -47,16 +47,16 @@ public class AdminCommandReceiver extends BroadcastReceiver {
             case "unhome":       out = KioskPolicy.clearHome(context); break;
             case "hide":         out = KioskPolicy.hideApps(context, true); break;
             case "unhide":       out = KioskPolicy.hideApps(context, false); break;
-            case "arm":          out = KioskPolicy.arm(context, true); break;
+            case "arm":          out = KioskPolicy.arm(context, true).toString(); break;
             case "poweroff":     out = KioskPolicy.allowPowerOff(context); break;
             case "updates":      out = KioskPolicy.systemUpdates(context); break;
-            case "disarm":       out = KioskPolicy.arm(context, false); break;
+            case "disarm":       out = KioskPolicy.arm(context, false).toString(); break;
             case "dns":          out = KioskPolicy.applyPrivateDns(
                                           context, intent.getStringExtra("host")); break;
-            case "lockinstall":  out = KioskPolicy.lockInstall(context, true); break;
-            case "unlockinstall":out = KioskPolicy.lockInstall(context, false); break;
-            case "lockdebug":    out = KioskPolicy.lockDebugging(context, true); break;
-            case "unlockdebug":  out = KioskPolicy.lockDebugging(context, false); break;
+            case "lockinstall":  out = KioskPolicy.lockInstall(context, true).toString(); break;
+            case "unlockinstall":out = KioskPolicy.lockInstall(context, false).toString(); break;
+            case "lockdebug":    out = KioskPolicy.lockDebugging(context, true).toString(); break;
+            case "unlockdebug":  out = KioskPolicy.lockDebugging(context, false).toString(); break;
             case "timezone":     out = KioskPolicy.setTimeZone(
                                           context, intent.getStringExtra("tz")); break;
             // Preload a network at setup time, so the tablet auto-joins on arrival and the
