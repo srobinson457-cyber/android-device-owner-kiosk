@@ -124,12 +124,12 @@ separate limits:
 - **On-device maintenance mode** (`KioskPolicy`). "Open maintenance mode" on the admin screen
   disarms lock task and restores ADB, and that survives reboots. The device records when it was
   opened as an absolute timestamp, and the first kiosk start more than an hour later
-  (`LOCAL_MAINTENANCE_TTL_MS`) re-locks it, whatever the armed flag says. That check runs
-  before the armed check, because maintenance mode is what cleared the flag, and the flag is
-  not proof of a re-lock anyway: opening maintenance mode lifts the debugging and install locks
-  before it disarms, so a failed disarm leaves `armed=true` with both still lifted. Only a
-  re-lock clears the marker, and only when all three of its steps succeed. If any step fails,
-  every kiosk start after the hour tries the re-lock again.
+  (`LOCAL_MAINTENANCE_TTL_MS`) re-locks it. That check runs before the armed check, because
+  maintenance mode is what cleared the flag. It also ignores the flag, which says nothing about
+  the other locks: opening maintenance mode lifts the debugging and install locks before it
+  disarms, so a failed disarm leaves `armed=true` with both still lifted. Only a re-lock clears
+  the timestamp, and only when all three of its steps succeed. If any step fails, every kiosk
+  start after the hour tries the re-lock again.
 
 ### A hardcoded package list rots silently on the first OTA
 
