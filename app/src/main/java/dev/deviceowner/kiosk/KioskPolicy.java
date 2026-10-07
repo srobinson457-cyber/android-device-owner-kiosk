@@ -268,9 +268,11 @@ public final class KioskPolicy {
     // ---------------------------------------------------------------- maintenance mode
 
     /**
-     * When on-device maintenance mode was opened (wall-clock ms). Cleared once the armed flag
-     * is true again: relock() checks the flag after running its steps, and
-     * expireMaintenanceIfStale checks it on every kiosk start.
+     * When on-device maintenance mode was opened (wall-clock ms). Only relock() clears it, and
+     * only when all three of its steps took: lockInstall and lockDebugging applied every
+     * restriction, and arm recorded armed=true. The armed flag alone proves nothing: opening
+     * maintenance mode lifts the other two locks before it disarms, so a failed disarm leaves
+     * the flag true with both of them lifted.
      */
     static final String KEY_MAINT_OPENED = "maintenance_opened_at";
 
@@ -300,8 +302,8 @@ public final class KioskPolicy {
      *
      * An hour is generous for someone being talked through a fix on the phone, and bounded
      * enough that "forgot" costs an hour rather than forever. Called on every kiosk start, so
-     * a reboot mid-window does not reset the clock: the timestamp is absolute. If the relock
-     * does not re-arm the device, the marker stays and the next start tries again.
+     * a reboot mid-window does not reset the clock: the timestamp is absolute. If any relock
+     * step fails, the marker stays and the next start tries again.
      *
      * @return true if the window had expired and a relock was attempted.
      */
@@ -315,11 +317,11 @@ public final class KioskPolicy {
                                             Supplier<String> relock) {
         long opened = p.getLong(KEY_MAINT_OPENED, 0L);
         if (opened == 0L) return false;
-        if (p.getBoolean(KEY_ARMED, false)) {
-            // Somebody re-locked it properly. Nothing to expire.
-            p.edit().remove(KEY_MAINT_OPENED).apply();
-            return false;
-        }
+        // No shortcut on armed=true: it does not mean somebody re-locked properly. Opening
+        // maintenance mode lifts the debugging and install locks before it disarms, so a
+        // failed disarm, or an `arm` sent over ADB, leaves armed=true with both still lifted.
+        // Only relock() clears the marker, so once the hour is up it runs whatever the flag
+        // says.
         if (now - opened < LOCAL_MAINTENANCE_TTL_MS) return false;
 
         Log.i(TAG, "maintenance window expired, re-locking automatically\n" + relock.get());
@@ -339,20 +341,36 @@ public final class KioskPolicy {
     }
 
     /** relock(Context) with the three steps passed in, for tests. */
-    static String relock(SharedPreferences p, Supplier<String> lockInstall,
-                         Supplier<String> arm, Supplier<String> lockDebugging) {
-        StringBuilder log = new StringBuilder();
-        log.append(lockInstall.get()).append('\n');
-        log.append(arm.get()).append('\n');
+    static String relock(SharedPreferences p, Supplier<Step> lockInstall,
+                         Supplier<Step> arm, Supplier<Step> lockDebugging) {
+        Step install = lockInstall.get();
+        Step armed = arm.get();
         // Debugging goes last, exactly as at handover: it is the step that removes our own
         // way back in, so nothing may fail after it.
-        log.append(lockDebugging.get());
-        // arm() writes armed=true only when it succeeds. Until then keep the marker, so a
-        // failed re-arm is retried on the next start instead of leaving the device open.
-        if (p.getBoolean(KEY_ARMED, false)) {
+        Step debugging = lockDebugging.get();
+        // The one place the marker is cleared, and only when every step took. Until then it
+        // stays, so the next start retries instead of leaving the device open. The armed flag
+        // is not consulted: it can already be true when opening maintenance failed to disarm.
+        if (install.ok && armed.ok && debugging.ok) {
             p.edit().remove(KEY_MAINT_OPENED).apply();
         }
-        return log.toString();
+        return install + "\n" + armed + "\n" + debugging;
+    }
+
+    /**
+     * What a lock step did: its report, for a person or the log, and whether it did its whole
+     * job. relock() reads ok rather than parsing the report.
+     */
+    static final class Step {
+        final boolean ok;
+        private final String report;
+
+        Step(boolean ok, String report) {
+            this.ok = ok;
+            this.report = report;
+        }
+
+        @Override public String toString() { return report; }
     }
 
     // ---------------------------------------------------------------- updates and installs
@@ -393,10 +411,10 @@ public final class KioskPolicy {
      * It does not block installs in general: DISALLOW_INSTALL_APPS is deliberately left out
      * (see below), so Play can keep Android System WebView patched.
      */
-    static String lockInstall(Context c, boolean locked) {
+    static Step lockInstall(Context c, boolean locked) {
         DevicePolicyManager d = dpm(c);
         ComponentName a = admin(c);
-        if (d == null || !isOwner(c)) return "NOT DEVICE OWNER";
+        if (d == null || !isOwner(c)) return new Step(false, "NOT DEVICE OWNER");
         List<String> on = new ArrayList<>();
         List<String> failed = new ArrayList<>();
         // DISALLOW_INSTALL_APPS is deliberately NOT here any more.
@@ -428,7 +446,8 @@ public final class KioskPolicy {
                 failed.add(k);
             }
         }
-        return (locked ? "INSTALL LOCKED " : "INSTALL UNLOCKED ") + on + " failed=" + failed;
+        return new Step(failed.isEmpty(),
+                (locked ? "INSTALL LOCKED " : "INSTALL UNLOCKED ") + on + " failed=" + failed);
     }
 
     /**
@@ -436,10 +455,10 @@ public final class KioskPolicy {
      * wireless debugging both), which means it also removes our own way back in. Everything
      * else must be verified before this runs. locked=false lifts both again.
      */
-    static String lockDebugging(Context c, boolean locked) {
+    static Step lockDebugging(Context c, boolean locked) {
         DevicePolicyManager d = dpm(c);
         ComponentName a = admin(c);
-        if (d == null || !isOwner(c)) return "NOT DEVICE OWNER";
+        if (d == null || !isOwner(c)) return new Step(false, "NOT DEVICE OWNER");
         return lockDebugging((k, on) -> {
             if (on) d.addUserRestriction(a, k); else d.clearUserRestriction(a, k);
         }, locked);
@@ -451,7 +470,7 @@ public final class KioskPolicy {
     }
 
     /** lockDebugging(Context, boolean) against any RestrictionSetter, for tests. */
-    static String lockDebugging(RestrictionSetter r, boolean locked) {
+    static Step lockDebugging(RestrictionSetter r, boolean locked) {
         List<String> done = new ArrayList<>();
         List<String> failed = new ArrayList<>();
         // Both of these remove our own access, so they go together and they go LAST.
@@ -468,7 +487,8 @@ public final class KioskPolicy {
         // diagnostic that lies.
         String outcome = !failed.isEmpty() ? (locked ? "LOCK" : "UNLOCK") + " INCOMPLETE"
                 : locked ? "DISABLED (adb is gone)" : "re-enabled";
-        return "DEBUGGING+USB " + outcome + " " + done + " failed=" + failed;
+        return new Step(failed.isEmpty(),
+                "DEBUGGING+USB " + outcome + " " + done + " failed=" + failed);
     }
 
     // ---------------------------------------------------------------- HOME takeover
@@ -665,10 +685,11 @@ public final class KioskPolicy {
         return String.join("|", on) + "(mFlags=" + f + ")";
     }
 
-    static String arm(Context c, boolean armed) {
+    /** Arms or disarms lock task. The step is ok only once the armed flag is recorded. */
+    static Step arm(Context c, boolean armed) {
         DevicePolicyManager d = dpm(c);
         ComponentName a = admin(c);
-        if (d == null || !isOwner(c)) return "NOT DEVICE OWNER";
+        if (d == null || !isOwner(c)) return new Step(false, "NOT DEVICE OWNER");
 
         StringBuilder sb = new StringBuilder();
         try {
@@ -708,14 +729,14 @@ public final class KioskPolicy {
                 sb.append("keyguardLeftOn ");
             }
         } catch (Exception e) {
-            return "ARM FAILED: " + e;
+            return new Step(false, "ARM FAILED: " + e);
         }
 
         SharedPreferences prefs = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         prefs.edit().putBoolean(KEY_ARMED, armed).apply();
         sb.append("armed=").append(armed);
         Log.i(TAG, sb.toString());
-        return sb.toString();
+        return new Step(true, sb.toString());
     }
 
     /**

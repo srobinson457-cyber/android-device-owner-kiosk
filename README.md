@@ -43,7 +43,7 @@ So the design goal is not "lock it down". It is **lock it down and still be able
 
 | File | Lines | What it does |
 |---|---:|---|
-| `KioskPolicy.java` | 789 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
+| `KioskPolicy.java` | 810 | The policy engine. Restrictions, package hiding, lock task, HOME takeover, OTA windows, time zone. |
 | `WifiSetupActivity.java` | 594 | On-device Wi-Fi provisioning, so the device can move to a new network without a computer. |
 | `ProbeActivity.java` | 302 | The admin console, reachable only through the gate. |
 | `KioskShellActivity.java` | 193 | Base activity: enters lock task, polls policy, hosts the hidden admin gesture. |
@@ -124,10 +124,12 @@ separate limits:
 - **On-device maintenance mode** (`KioskPolicy`). "Open maintenance mode" on the admin screen
   disarms lock task and restores ADB, and that survives reboots. The device records when it was
   opened as an absolute timestamp, and the first kiosk start more than an hour later
-  (`LOCAL_MAINTENANCE_TTL_MS`) re-locks it. That check runs before the armed check, because
-  maintenance mode is what cleared the armed flag. The marker is cleared once the armed flag is
-  true again. If a re-lock's arm step fails, the flag stays false, so every kiosk start after
-  the hour tries the re-lock again.
+  (`LOCAL_MAINTENANCE_TTL_MS`) re-locks it, whatever the armed flag says. That check runs
+  before the armed check, because maintenance mode is what cleared the flag, and the flag is
+  not proof of a re-lock anyway: opening maintenance mode lifts the debugging and install locks
+  before it disarms, so a failed disarm leaves `armed=true` with both still lifted. Only a
+  re-lock clears the marker, and only when all three of its steps succeed. If any step fails,
+  every kiosk start after the hour tries the re-lock again.
 
 ### A hardcoded package list rots silently on the first OTA
 
